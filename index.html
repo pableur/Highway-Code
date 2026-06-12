@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Code Puzzle — Apprendre le code de la route en jouant</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app__header">
+      <h1>🚦 Code Puzzle</h1>
+      <p class="app__subtitle">Clique sur les véhicules dans le bon ordre pour respecter les priorités.</p>
+    </header>
+
+    <div class="toolbar">
+      <label for="scenarioSelect" class="toolbar__label">Scénario</label>
+      <select id="scenarioSelect" class="toolbar__select"></select>
+      <button id="restartBtn" class="btn btn--ghost" type="button">↺ Recommencer</button>
+    </div>
+
+    <main class="stage">
+      <canvas id="game" width="576" height="576" aria-label="Scène de circulation"></canvas>
+    </main>
+
+    <!-- Bandeau d'indices / feedback temps réel (sous la scène) -->
+    <div id="banner" class="banner banner--info">
+      <span id="bannerText">Observe la scène…</span>
+    </div>
+
+    <!-- Panneau pédagogique (règle), affiché en fin de puzzle -->
+    <section id="rulePanel" class="rule-panel" hidden>
+      <div class="rule-panel__icon" id="ruleIcon">✅</div>
+      <div class="rule-panel__body">
+        <h2 id="ruleTitle">Bravo !</h2>
+        <p id="ruleText"></p>
+      </div>
+      <div class="rule-panel__actions">
+        <button id="retryBtn" class="btn btn--ghost" type="button">Recommencer</button>
+        <button id="nextBtn" class="btn btn--primary" type="button">Scénario suivant →</button>
+      </div>
+    </section>
+
+    <footer class="app__footer">
+      <span id="progressInfo"></span>
+    </footer>
+  </div>
+
+  <script src="scenarios.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
