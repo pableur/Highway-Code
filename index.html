@@ -23,6 +23,19 @@
       <canvas id="game" width="576" height="576" aria-label="Scène de circulation"></canvas>
     </main>
 
+    <!-- HUD de vitesse (uniquement pour les scénarios kind: "speed") -->
+    <div id="speedHud" class="speed-hud" hidden>
+      <div id="speedo" class="speedo speedo--ok">
+        <span id="speedValue" class="speedo__value">90</span>
+        <span class="speedo__unit">km/h</span>
+      </div>
+      <div id="speedLimitInfo" class="speed-hud__limit">Limite en ville : 50 km/h</div>
+      <div class="speed-hud__controls">
+        <button id="brakeBtn" class="btn btn--brake" type="button">🛑 Freiner</button>
+        <button id="accelBtn" class="btn btn--accel" type="button">🚀 Accélérer</button>
+      </div>
+    </div>
+
     <!-- Bandeau d'indices / feedback temps réel (sous la scène) -->
     <div id="banner" class="banner banner--info">
       <span id="bannerText">Observe la scène…</span>

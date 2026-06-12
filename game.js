@@ -12,11 +12,17 @@
   "use strict";
 
   // --- Constantes de rendu ---------------------------------------------------
-  const CELL = 64;             // taille d'une case en pixels
+  const CELL = 64; // taille d'une case en pixels
   const CAR_LEN = CELL * 0.74; // longueur d'une voiture
-  const CAR_W = CELL * 0.42;   // largeur d'une voiture
-  const DRIVE_SPEED = 3.2;     // vitesse en cases / seconde
-  const HINT_DELAY = 4.0;      // secondes avant d'afficher un indice
+  const CAR_W = CELL * 0.42; // largeur d'une voiture
+  const DRIVE_SPEED = 3.2; // vitesse en cases / seconde
+  const HINT_DELAY = 4.0; // secondes avant d'afficher un indice
+
+  // --- Constantes des scénarios de vitesse -----------------------------------
+  const SPEED_MAX = 130; // km/h max
+  const BRAKE_RATE = 55; // km/h perdus par seconde (frein)
+  const ACCEL_RATE = 30; // km/h gagnés par seconde (accélérateur)
+  const SPEED_TO_CELLS = 0.0011; // cases parcourues / seconde par km/h
 
   // --- Références DOM ---------------------------------------------------------
   const canvas = document.getElementById("game");
@@ -32,12 +38,19 @@
   const retryBtn = document.getElementById("retryBtn");
   const nextBtn = document.getElementById("nextBtn");
   const progressInfo = document.getElementById("progressInfo");
+  // HUD de vitesse
+  const speedHud = document.getElementById("speedHud");
+  const speedo = document.getElementById("speedo");
+  const speedValue = document.getElementById("speedValue");
+  const speedLimitInfo = document.getElementById("speedLimitInfo");
+  const brakeBtn = document.getElementById("brakeBtn");
+  const accelBtn = document.getElementById("accelBtn");
 
   // --- État courant -----------------------------------------------------------
   let scenarioIndex = 0;
-  let scene = null;       // scénario instancié et "vivant"
-  let lastTs = 0;         // timestamp précédent (pour le delta-time)
-  let elapsed = 0;        // temps écoulé depuis le dernier événement (pour l'indice)
+  let scene = null; // scénario instancié et "vivant"
+  let lastTs = 0; // timestamp précédent (pour le delta-time)
+  let elapsed = 0; // temps écoulé depuis le dernier événement (pour l'indice)
 
   /* ===========================================================================
    *  HELPERS GÉOMÉTRIE
@@ -73,27 +86,54 @@
     const data = SCENARIOS[index];
     scenarioIndex = index;
 
-    // Adapte la taille du canvas à la grille
+    // Adapte la taille et le ratio du canvas à la grille
     canvas.width = data.cols * CELL;
     canvas.height = data.rows * CELL;
+    canvas.style.aspectRatio = `${data.cols} / ${data.rows}`;
+
+    const kind = data.kind || "order";
 
     // Instancie un état "vivant" pour chaque véhicule
     const vehicles = data.vehicles.map((v) => ({
       ...v,
-      progress: 0,                 // position le long du path
-      state: "waiting",            // "waiting" | "moving" | "done"
+      progress: 0, // position le long du path
+      // En mode vitesse, la voiture roule en continu ("moving").
+      state: kind === "speed" ? "moving" : "waiting",
     }));
 
     scene = {
       data,
+      kind,
       vehicles,
-      nextIndex: 0,                // prochaine voiture attendue dans expectedOrder
-      status: "playing",           // "playing" | "won" | "lost"
+      nextIndex: 0, // prochaine voiture attendue dans expectedOrder
+      status: "playing", // "playing" | "won" | "lost"
     };
+
+    if (kind === "speed") {
+      scene.speed = {
+        value: data.startSpeed, // vitesse courante (km/h)
+        brake: false,
+        accel: false,
+        checked: false, // ligne d'entrée déjà évaluée ?
+        passed: false, // franchie à la bonne vitesse ?
+      };
+      speedHud.hidden = false;
+      speedLimitInfo.textContent = `Limite à respecter : ${data.entry.limit} km/h`;
+      updateSpeedHud();
+      setBanner(
+        "info",
+        "La voiture roule ! Freine pour entrer en ville à la bonne vitesse.",
+      );
+    } else {
+      speedHud.hidden = true;
+      setBanner(
+        "info",
+        "Observe la scène, puis clique sur les véhicules dans le bon ordre.",
+      );
+    }
 
     elapsed = 0;
     hideRulePanel();
-    setBanner("info", "Observe la scène, puis clique sur les véhicules dans le bon ordre.");
     updateProgressInfo();
     selectEl.value = String(index);
   }
@@ -104,7 +144,7 @@
 
   // Le véhicule attendu pour le prochain clic
   function expectedVehicle() {
-    if (scene.status !== "playing") return null;
+    if (scene.kind !== "order" || scene.status !== "playing") return null;
     const id = scene.data.expectedOrder[scene.nextIndex];
     return vehicleById(id);
   }
@@ -120,9 +160,11 @@
     drawGrass();
     data.roads.forEach(drawRoad);
     if (data.roundabout) drawRoundabout(data.roundabout);
+    if (scene.kind === "speed") drawCity(data);
     // Les marquages droits n'ont pas de sens à travers un rond-point
     if (!data.roundabout) drawLaneMarkings(data.roads);
-    data.signs.forEach(drawSign);
+    if (scene.kind === "speed") drawEntrySign(data);
+    (data.signs || []).forEach(drawSign);
 
     // Véhicules : on dessine ceux qui ne sont pas encore "done"
     scene.vehicles.forEach((v) => {
@@ -142,7 +184,12 @@
     // léger liseré sur les bords de la route
     ctx.strokeStyle = "rgba(255,255,255,0.18)";
     ctx.lineWidth = 2;
-    ctx.strokeRect(r.col * CELL + 1, r.row * CELL + 1, r.w * CELL - 2, r.h * CELL - 2);
+    ctx.strokeRect(
+      r.col * CELL + 1,
+      r.row * CELL + 1,
+      r.w * CELL - 2,
+      r.h * CELL - 2,
+    );
   }
 
   // Rond-point : anneau d'asphalte + îlot central engazonné
@@ -181,6 +228,104 @@
     ctx.stroke();
   }
 
+  // Ville : bandes de bâtiments de part et d'autre de la route, à partir de
+  // data.city.fromCol. (Scénarios de vitesse uniquement.)
+  function drawCity(data) {
+    if (!data.city) return;
+    const road = data.roads[0];
+    const roadTop = road.row * CELL;
+    const roadBottom = (road.row + road.h) * CELL;
+    const x0 = data.city.fromCol * CELL;
+    const x1 = data.cols * CELL;
+    drawBuildingBand(x0, x1, 0, roadTop, "top");
+    drawBuildingBand(x0, x1, roadBottom, data.rows * CELL, "bottom");
+  }
+
+  function drawBuildingBand(x0, x1, yTop, yBottom, anchor) {
+    const palette = ["#566077", "#6d5f54", "#4b5668", "#71664f", "#5b5160"];
+    const bandH = yBottom - yTop;
+    let i = Math.floor(x0 / CELL) + 1;
+    for (let bx = x0 + 4; bx < x1 - 6; bx += CELL * 1.05) {
+      const bw = CELL * 0.82;
+      const h = bandH * (0.55 + 0.13 * (i % 4));
+      const by = anchor === "top" ? yTop : yBottom - h;
+      ctx.fillStyle = palette[i % palette.length];
+      ctx.fillRect(bx, by, bw, h);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(0,0,0,0.25)";
+      ctx.strokeRect(bx, by, bw, h);
+      drawWindows(bx, by, bw, h);
+      i++;
+    }
+  }
+
+  function drawWindows(bx, by, bw, bh) {
+    ctx.fillStyle = "rgba(255, 221, 130, 0.5)";
+    const cols = 2;
+    const pad = 6;
+    const ww = (bw - pad * (cols + 1)) / cols;
+    const wh = 8;
+    for (let wy = by + pad; wy + wh < by + bh - 4; wy += wh + 6) {
+      for (let c = 0; c < cols; c++) {
+        const wx = bx + pad + c * (ww + pad);
+        ctx.fillRect(wx, wy, ww, wh);
+      }
+    }
+  }
+
+  // Panneau d'entrée de zone + ligne d'entrée (scénarios de vitesse).
+  function drawEntrySign(data) {
+    const entry = data.entry;
+    const road = data.roads[0];
+    const x = entry.col * CELL;
+    const baseY = road.row * CELL - 6; // juste au-dessus de la route
+
+    if (entry.sign.type === "agglo") {
+      // Panneau d'agglomération : rectangle clair, bord rouge, nom de la ville
+      const w = CELL * 1.8;
+      const h = CELL * 0.5;
+      const px = x - w / 2;
+      const py = baseY - h;
+      ctx.fillStyle = "#ece6d6";
+      roundRect(ctx, px, py, w, h, 4);
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#c23b2b";
+      ctx.stroke();
+      ctx.fillStyle = "#22262e";
+      ctx.font = "bold 14px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(entry.sign.name, x, py + h / 2);
+    } else if (entry.sign.type === "limit") {
+      // Panneau de limitation : disque blanc, gros bord rouge, valeur
+      const r = CELL * 0.34;
+      const cy = baseY - r;
+      ctx.beginPath();
+      ctx.arc(x, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = "#d11e1e";
+      ctx.stroke();
+      ctx.fillStyle = "#111111";
+      ctx.font = "bold 18px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(entry.sign.value), x, cy + 1);
+    }
+
+    // Ligne d'entrée en pointillés sur la route
+    ctx.setLineDash([6, 6]);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255,255,255,0.55)";
+    ctx.beginPath();
+    ctx.moveTo(x, road.row * CELL);
+    ctx.lineTo(x, (road.row + road.h) * CELL);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   // Lignes blanches discontinues au centre de chaque route
   function drawLaneMarkings(roads) {
     ctx.strokeStyle = "rgba(255,255,255,0.65)";
@@ -205,7 +350,10 @@
 
   function drawVehicle(v) {
     const { x, y, angle } = posAlongPath(v.path, v.progress);
-    const isExpected = scene.status === "playing" && expectedVehicle() === v;
+    const isExpected =
+      scene.kind === "order" &&
+      scene.status === "playing" &&
+      expectedVehicle() === v;
 
     // Halo d'indice : pulse autour des véhicules cliquables
     if (v.state === "waiting") {
@@ -214,7 +362,7 @@
       ctx.beginPath();
       ctx.arc(x, y, CAR_LEN * 0.72, 0, Math.PI * 2);
       ctx.fillStyle = strong
-        ? `rgba(255, 206, 90, ${0.18 + pulse * 0.30})`
+        ? `rgba(255, 206, 90, ${0.18 + pulse * 0.3})`
         : `rgba(255, 255, 255, ${0.06 + pulse * 0.12})`;
       ctx.fill();
     }
@@ -232,13 +380,20 @@
     ctx.stroke();
 
     // Pare-brise (vers l'avant = +x)
-    roundRect(ctx, CAR_LEN * 0.06, -CAR_W * 0.34, CAR_LEN * 0.26, CAR_W * 0.68, 4);
+    roundRect(
+      ctx,
+      CAR_LEN * 0.06,
+      -CAR_W * 0.34,
+      CAR_LEN * 0.26,
+      CAR_W * 0.68,
+      4,
+    );
     ctx.fillStyle = "rgba(20,30,50,0.78)";
     ctx.fill();
 
     // Flèche de direction sur le capot
     ctx.beginPath();
-    ctx.moveTo(CAR_LEN * 0.40, 0);
+    ctx.moveTo(CAR_LEN * 0.4, 0);
     ctx.lineTo(CAR_LEN * 0.26, -CAR_W * 0.22);
     ctx.lineTo(CAR_LEN * 0.26, CAR_W * 0.22);
     ctx.closePath();
@@ -273,7 +428,7 @@
   // --- Panneaux ---------------------------------------------------------------
   function drawSign(sign) {
     const { x, y } = cellCenter(sign.col, sign.row);
-    const r = CELL * 0.30;
+    const r = CELL * 0.3;
     ctx.save();
     ctx.translate(x, y);
 
@@ -377,15 +532,24 @@
     const dt = lastTs ? Math.min((ts - lastTs) / 1000, 0.05) : 0;
     lastTs = ts;
 
+    if (scene.kind === "speed") {
+      tickSpeed(dt);
+    } else {
+      tickOrder(dt);
+    }
+
+    draw();
+    requestAnimationFrame(tick);
+  }
+
+  // Mode "ordre de passage" : indices + avance des véhicules cliqués.
+  function tickOrder(dt) {
     if (scene.status === "playing") {
       elapsed += dt;
-      // Affiche l'indice si le joueur hésite
       if (elapsed > HINT_DELAY && bannerEl.dataset.kind !== "hint") {
         setBanner("hint", "💡 " + scene.data.hint);
       }
     }
-
-    // Avance les véhicules en mouvement
     scene.vehicles.forEach((v) => {
       if (v.state !== "moving") return;
       v.progress += DRIVE_SPEED * dt;
@@ -395,9 +559,61 @@
         onVehicleArrived();
       }
     });
+  }
 
-    draw();
-    requestAnimationFrame(tick);
+  // Mode "vitesse" : la voiture roule, le joueur freine/accélère pour franchir
+  // la ligne d'entrée à une vitesse <= limite.
+  function tickSpeed(dt) {
+    const s = scene.speed;
+    const car = scene.vehicles[0];
+
+    if (scene.status === "playing") {
+      if (s.brake) s.value -= BRAKE_RATE * dt;
+      if (s.accel) s.value += ACCEL_RATE * dt;
+      s.value = Math.max(0, Math.min(SPEED_MAX, s.value));
+
+      const maxIdx = car.path.length - 1;
+      car.progress = Math.min(
+        car.progress + s.value * SPEED_TO_CELLS * dt,
+        maxIdx,
+      );
+
+      const { x } = posAlongPath(car.path, car.progress);
+      const entryX = scene.data.entry.col * CELL;
+
+      // Franchissement de la ligne d'entrée : on évalue la vitesse une fois.
+      if (!s.checked && x >= entryX) {
+        s.checked = true;
+        if (s.value > scene.data.entry.limit + 0.5) {
+          scene.status = "lost";
+          triggerShake();
+          setBanner(
+            "bad",
+            `💥 Excès de vitesse : ${Math.round(s.value)} km/h pour ${scene.data.entry.limit} !`,
+          );
+          showRulePanel(false);
+        } else {
+          s.passed = true;
+          setBanner("ok", "✅ Bonne vitesse, tu entres en sécurité.");
+        }
+      }
+
+      // Sortie de scène à la bonne vitesse -> victoire
+      if (s.passed && car.progress >= maxIdx) {
+        scene.status = "won";
+        showRulePanel(true);
+      }
+    }
+
+    updateSpeedHud();
+  }
+
+  function updateSpeedHud() {
+    const s = scene.speed;
+    speedValue.textContent = String(Math.round(s.value));
+    const over = s.value > scene.data.entry.limit + 0.5;
+    speedo.classList.toggle("speedo--over", over);
+    speedo.classList.toggle("speedo--ok", !over);
   }
 
   /* ===========================================================================
@@ -416,7 +632,7 @@
   }
 
   function handleClick(evt) {
-    if (scene.status !== "playing") return;
+    if (scene.kind !== "order" || scene.status !== "playing") return;
     const { x, y } = eventToCanvas(evt);
 
     // Trouve un véhicule "waiting" sous le clic
@@ -474,13 +690,13 @@
   function showRulePanel(success) {
     const r = scene.data.rule;
     rulePanel.hidden = false;
-    rulePanel.className = "rule-panel " + (success ? "rule-panel--ok" : "rule-panel--bad");
+    rulePanel.className =
+      "rule-panel " + (success ? "rule-panel--ok" : "rule-panel--bad");
     ruleIcon.textContent = success ? "✅" : "❌";
     ruleTitle.textContent = success ? "Bravo, bien vu !" : "Pas tout à fait…";
     ruleText.textContent = success ? r.good : r.bad;
     // Le bouton "suivant" n'a de sens que s'il reste des scénarios
-    nextBtn.style.display =
-      scenarioIndex < SCENARIOS.length - 1 ? "" : "none";
+    nextBtn.style.display = scenarioIndex < SCENARIOS.length - 1 ? "" : "none";
   }
 
   function hideRulePanel() {
@@ -488,6 +704,10 @@
   }
 
   function updateProgressInfo() {
+    if (scene.kind === "speed") {
+      progressInfo.textContent = `Scénario ${scenarioIndex + 1}/${SCENARIOS.length} — gestion de la vitesse`;
+      return;
+    }
     const total = scene.data.expectedOrder.length;
     progressInfo.textContent =
       `Scénario ${scenarioIndex + 1}/${SCENARIOS.length} — ` +
@@ -514,13 +734,32 @@
   }
 
   // Événements UI
-  selectEl.addEventListener("change", (e) => loadScenario(Number(e.target.value)));
+  selectEl.addEventListener("change", (e) =>
+    loadScenario(Number(e.target.value)),
+  );
   restartBtn.addEventListener("click", () => loadScenario(scenarioIndex));
   retryBtn.addEventListener("click", () => loadScenario(scenarioIndex));
   nextBtn.addEventListener("click", () => {
     if (scenarioIndex < SCENARIOS.length - 1) loadScenario(scenarioIndex + 1);
   });
   canvas.addEventListener("click", handleClick);
+
+  // Boutons frein / accélérateur (maintien enfoncé) pour les scénarios vitesse
+  function bindHold(btn, flag) {
+    const press = (e) => {
+      e.preventDefault();
+      if (scene && scene.speed) scene.speed[flag] = true;
+    };
+    const release = () => {
+      if (scene && scene.speed) scene.speed[flag] = false;
+    };
+    btn.addEventListener("pointerdown", press);
+    btn.addEventListener("pointerup", release);
+    btn.addEventListener("pointerleave", release);
+    btn.addEventListener("pointercancel", release);
+  }
+  bindHold(brakeBtn, "brake");
+  bindHold(accelBtn, "accel");
 
   // Go !
   populateSelect();

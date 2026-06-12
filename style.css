@@ -67,7 +67,7 @@ html, body {
 #game {
   width: 100%;
   max-width: 576px;
-  aspect-ratio: 1 / 1;
+  /* aspect-ratio est défini dynamiquement par le moteur selon la grille */
   height: auto;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -100,6 +100,53 @@ html, body {
 .banner--hint { background: rgba(255, 206, 90, 0.95); color: #2a2300; }
 .banner--ok { background: rgba(46, 204, 113, 0.95); color: #05300f; }
 .banner--bad { background: rgba(255, 92, 108, 0.96); color: #3a0008; }
+
+/* HUD de vitesse */
+.speed-hud {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+.speed-hud[hidden] { display: none; }
+
+.speedo {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.15s ease;
+}
+.speedo__value { font-size: 52px; font-weight: 800; line-height: 1; }
+.speedo__unit { font-size: 18px; font-weight: 600; color: var(--muted); }
+.speedo--ok .speedo__value { color: var(--success); }
+.speedo--over .speedo__value { color: var(--danger); }
+
+.speed-hud__limit { font-size: 14px; color: var(--muted); }
+
+.speed-hud__controls { display: flex; gap: 12px; }
+.btn--brake {
+  background: linear-gradient(135deg, #ff7a59, #ff3b5c);
+  color: white;
+  padding: 14px 26px;
+  font-size: 16px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.btn--accel {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid #33476f;
+  padding: 14px 26px;
+  font-size: 16px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.btn--brake:active, .btn--accel:active { filter: brightness(1.15); }
 
 /* Rule panel */
 .rule-panel {

@@ -440,4 +440,78 @@ const SCENARIOS = [
     },
     hint: "Tu es déjà sur l'anneau et l'autre veut entrer : qui doit céder ?",
   },
+
+  /* =======================================================================
+   *  SCÉNARIOS DE VITESSE  (kind: "speed")
+   *  La voiture roule toute seule ; le joueur FREINE / ACCÉLÈRE pour franchir
+   *  la ligne d'entrée à une vitesse <= `entry.limit`.
+   *  Champs spécifiques :
+   *    startSpeed : vitesse initiale (km/h)
+   *    city       : { fromCol } — colonne à partir de laquelle on dessine la ville
+   *    entry      : { col, limit, sign } — ligne d'entrée + limite + panneau
+   *                 sign = { type:"agglo", name } | { type:"limit", value }
+   * =====================================================================*/
+  {
+    id: "city-entry",
+    kind: "speed",
+    title: "Entrée en agglomération",
+    cols: 13,
+    rows: 7,
+    roads: [{ col: 0, row: 3, w: 13, h: 2 }],
+    signs: [],
+    city: { fromCol: 7 },
+    entry: { col: 7, limit: 50, sign: { type: "agglo", name: "SAINT-CLAIR" } },
+    startSpeed: 90,
+    vehicles: [
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        path: [[-1.2, 3.5], [14, 3.5]],
+      },
+    ],
+    rule: {
+      good:
+        "Parfait ! Le panneau d'entrée d'agglomération (nom de la ville sur fond " +
+        "clair) impose une vitesse de 50 km/h par défaut. Tu as ralenti à temps " +
+        "avant la ligne d'entrée.",
+      bad:
+        "Excès de vitesse ! Dès le panneau d'agglomération, la limite passe à " +
+        "50 km/h (sauf indication contraire). Il fallait freiner AVANT d'entrer " +
+        "dans la ville.",
+    },
+    hint: "Panneau de ville en vue : à quelle vitesse roule-t-on en agglomération ?",
+  },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "zone-30",
+    kind: "speed",
+    title: "Zone 30 — école",
+    cols: 13,
+    rows: 7,
+    roads: [{ col: 0, row: 3, w: 13, h: 2 }],
+    signs: [],
+    city: { fromCol: 0 }, // déjà en ville
+    entry: { col: 7, limit: 30, sign: { type: "limit", value: 30 } },
+    startSpeed: 50,
+    vehicles: [
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        path: [[-1.2, 3.5], [14, 3.5]],
+      },
+    ],
+    rule: {
+      good:
+        "Bien joué ! Le panneau rond cerclé de rouge « 30 » impose 30 km/h, " +
+        "typique des abords d'école et des zones de rencontre. Tu as adapté ta " +
+        "vitesse pour la sécurité des piétons.",
+      bad:
+        "Trop vite ! Le disque rouge « 30 » limite la vitesse à 30 km/h. Près " +
+        "d'une école, ralentir est essentiel pour la sécurité des enfants.",
+    },
+    hint: "Un disque rouge avec « 30 » : quelle vitesse maximale impose-t-il ?",
+  },
 ];
