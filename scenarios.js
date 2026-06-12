@@ -514,4 +514,355 @@ const SCENARIOS = [
     },
     hint: "Un disque rouge avec « 30 » : quelle vitesse maximale impose-t-il ?",
   },
+
+  /* =======================================================================
+   *  FEUX TRICOLORES, PIÉTONS, CLASSES DE VÉHICULES  (kind: "order")
+   *  Nouveaux champs facultatifs :
+   *    lights     : [{ col, row, state: "red"|"orange"|"green"|"off" }]
+   *    crosswalks : [{ col, row, w, h }]  (passage piéton, zébra)
+   *    tracks     : [{ col, row, w, h }]  (voie ferrée)
+   *    weather    : "rain"                (overlay pluie, scénarios vitesse)
+   *  Sur un véhicule : vClass = "bus"|"truck"|"bike"|"train"|"pedestrian",
+   *                    speedMul (multiplicateur de vitesse, ex. train rapide).
+   * =====================================================================*/
+  {
+    id: "feu-vert",
+    title: "Feu vert — tu passes",
+    cols: 9,
+    rows: 9,
+    roads: [
+      { col: 0, row: 4, w: 9, h: 2 },
+      { col: 4, row: 0, w: 2, h: 9 },
+    ],
+    signs: [],
+    lights: [
+      { col: 6.2, row: 6.2, state: "green" }, // ton feu : vert
+      { col: 2.8, row: 2.8, state: "red" }, // feu transversal : rouge
+    ],
+    vehicles: [
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        path: [[5, 8], [5, 6], [5, 5], [5, 4], [5, 0]],
+      },
+      {
+        id: "cross",
+        color: "#ffce5a",
+        path: [[0, 5], [3, 5], [4, 5], [5, 5], [8, 5]],
+      },
+    ],
+    expectedOrder: ["player"], // tu passes ; l'autre a rouge et attend
+    rule: {
+      good:
+        "Parfait ! Ton feu est vert : tu passes sans t'arrêter. Le véhicule de " +
+        "la voie transversale a le feu rouge, c'est à lui d'attendre.",
+      bad:
+        "Ton feu était vert : tu avais la priorité ! Inutile de laisser passer " +
+        "celui qui a le rouge — c'était à toi d'avancer.",
+    },
+    hint: "Regarde la couleur de TON feu : que t'autorise-t-il ?",
+  },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "feu-rouge",
+    title: "Feu rouge — tu t'arrêtes",
+    cols: 9,
+    rows: 9,
+    roads: [
+      { col: 0, row: 4, w: 9, h: 2 },
+      { col: 4, row: 0, w: 2, h: 9 },
+    ],
+    signs: [],
+    lights: [
+      { col: 6.2, row: 6.2, state: "red" }, // ton feu : rouge
+      { col: 2.8, row: 2.8, state: "green" }, // feu transversal : vert
+    ],
+    vehicles: [
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        path: [[5, 8], [5, 6], [5, 5], [5, 4], [5, 0]],
+      },
+      {
+        id: "cross",
+        color: "#ffce5a",
+        path: [[0, 5], [3, 5], [4, 5], [5, 5], [8, 5]],
+      },
+    ],
+    expectedOrder: ["cross"], // tu restes à l'arrêt, l'autre (vert) passe
+    rule: {
+      good:
+        "Bien joué ! Ton feu est rouge : tu t'arrêtes et tu laisses passer la " +
+        "circulation qui a le vert. On ne franchit jamais un feu rouge.",
+      bad:
+        "Tu as grillé le feu rouge ! Quand ton feu est rouge, tu dois t'arrêter " +
+        "et laisser passer les véhicules dont le feu est vert.",
+    },
+    hint: "Ton feu est rouge : as-tu le droit d'avancer ?",
+  },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "feu-en-panne",
+    title: "Feu en panne — priorité à droite",
+    cols: 9,
+    rows: 9,
+    roads: [
+      { col: 0, row: 4, w: 9, h: 2 },
+      { col: 4, row: 0, w: 2, h: 9 },
+    ],
+    signs: [],
+    lights: [{ col: 6.2, row: 6.2, state: "off" }], // hors service (orange clignotant)
+    vehicles: [
+      {
+        id: "right",
+        color: "#ff9f5a",
+        // Vient de ta droite (de l'est), file vers l'ouest
+        path: [[8, 4], [5, 4], [4, 4], [3, 4], [0, 4]],
+      },
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        path: [[5, 8], [5, 6], [5, 5], [5, 4], [5, 0]],
+      },
+    ],
+    expectedOrder: ["right", "player"],
+    rule: {
+      good:
+        "Excellent ! Quand un feu est en panne (éteint ou orange clignotant), il " +
+        "ne donne plus la priorité : on applique la priorité à droite. La voiture " +
+        "venait de ta droite, tu l'as laissée passer.",
+      bad:
+        "Feu hors service = retour à la priorité à droite ! La voiture arrivait " +
+        "sur ta droite : elle était prioritaire, il fallait la laisser passer.",
+    },
+    hint: "Le feu clignote orange (en panne) : quelle règle prend le relais ?",
+  },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "passage-pieton",
+    title: "Passage piéton",
+    cols: 9,
+    rows: 9,
+    roads: [{ col: 4, row: 0, w: 2, h: 9 }],
+    signs: [],
+    crosswalks: [{ col: 4, row: 6, w: 2, h: 1 }],
+    vehicles: [
+      {
+        id: "pieton",
+        color: "#ffd21e",
+        vClass: "pedestrian",
+        speedMul: 0.55, // un piéton marche, il ne fonce pas
+        // Traverse de gauche à droite sur le passage (rangée 6)
+        path: [[3, 6.5], [4.5, 6.5], [6, 6.5]],
+      },
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        path: [[5, 8], [5, 7], [5, 6], [5, 5], [5, 0]],
+      },
+    ],
+    expectedOrder: ["pieton", "player"],
+    rule: {
+      good:
+        "Parfait ! Tu dois t'arrêter pour laisser traverser un piéton engagé (ou " +
+        "qui manifeste son intention de traverser) sur un passage piéton. Tu as " +
+        "attendu qu'il finisse de traverser.",
+      bad:
+        "Danger ! Sur un passage piéton, le piéton est prioritaire. Tu devais " +
+        "t'arrêter et le laisser traverser avant d'avancer.",
+    },
+    hint: "Un piéton traverse sur les bandes blanches : qui passe en premier ?",
+  },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "bus-arret",
+    title: "Bus qui quitte son arrêt",
+    cols: 11,
+    rows: 7,
+    roads: [{ col: 0, row: 3, w: 11, h: 2 }],
+    signs: [],
+    vehicles: [
+      {
+        id: "bus",
+        color: "#e0533a",
+        vClass: "bus",
+        label: "BUS",
+        blinker: "left", // signale qu'il se réinsère
+        // Quitte un arrêt (en contrebas) et se réinsère dans la circulation
+        path: [[4, 5.4], [5, 4.4], [6, 3.5], [8, 3.5], [11, 3.5]],
+      },
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        path: [[0.5, 3.5], [2, 3.5], [4.5, 3.5], [7, 3.5], [11, 3.5]],
+      },
+    ],
+    expectedOrder: ["bus", "player"],
+    rule: {
+      good:
+        "Bien vu ! En agglomération, tu dois céder le passage à un bus qui " +
+        "signale son intention de quitter son arrêt. Tu l'as laissé se réinsérer.",
+      bad:
+        "En ville, un bus qui remet son clignotant pour quitter son arrêt est " +
+        "prioritaire pour se réinsérer. Il fallait le laisser partir avant toi.",
+    },
+    hint: "Le bus clignote pour quitter son arrêt en ville : qui est prioritaire ?",
+  },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "tourne-droite-velo",
+    title: "Tourner à droite & cycliste",
+    cols: 9,
+    rows: 9,
+    roads: [
+      { col: 0, row: 4, w: 9, h: 2 },
+      { col: 4, row: 0, w: 2, h: 9 },
+    ],
+    signs: [],
+    vehicles: [
+      {
+        id: "velo",
+        color: "#3ddc6a",
+        vClass: "bike",
+        label: "🚲",
+        // Continue tout droit sur la bande cyclable (à droite), du bas vers le haut
+        path: [[5.4, 8.3], [5.4, 5], [5.4, 1], [5.4, -0.5]],
+      },
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        // Tourne à droite : du bas vers l'est
+        path: [[5, 8.3], [5, 6], [5, 5], [6, 5], [8, 5]],
+      },
+    ],
+    expectedOrder: ["velo", "player"],
+    rule: {
+      good:
+        "Parfait ! Avant de tourner à droite, tu dois céder le passage aux " +
+        "cyclistes qui circulent tout droit sur la bande cyclable à ta droite. " +
+        "Tu as laissé passer le vélo avant de tourner.",
+      bad:
+        "Attention au cycliste ! En tournant à droite, tu coupes la bande " +
+        "cyclable : il fallait laisser passer le vélo qui allait tout droit.",
+    },
+    hint: "Un vélo va tout droit à ta droite et tu veux tourner à droite : qui d'abord ?",
+  },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "passage-niveau",
+    title: "Passage à niveau",
+    cols: 9,
+    rows: 9,
+    roads: [{ col: 4, row: 0, w: 2, h: 9 }],
+    tracks: [{ col: 0, row: 2, w: 9, h: 1.2 }],
+    signs: [
+      { type: "railway", col: 2.7, row: 4.2 }, // croix de Saint-André + feux
+      { type: "railway", col: 7.3, row: 4.2 },
+    ],
+    vehicles: [
+      {
+        id: "train",
+        color: "#2c3550",
+        vClass: "train",
+        label: "🚆",
+        speedMul: 2.6, // le train arrive vite
+        // row 2.1 = centre des rails (voie dessinée de row 2 à 3.2, centre à 2.6
+        // en pixels ; comme les véhicules sont centrés sur la case, row = 2.1).
+        path: [[0.6, 2.1], [3, 2.1], [5, 2.1], [11, 2.1]],
+      },
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        path: [[5, 8.3], [5, 4], [5, 2.1], [5, 1], [5, -0.5]],
+      },
+    ],
+    expectedOrder: ["train", "player"],
+    rule: {
+      good:
+        "Parfait ! À un passage à niveau, on ne s'engage jamais tant qu'un train " +
+        "approche ou que les barrières sont baissées. Tu as attendu le passage du " +
+        "train avant de traverser.",
+      bad:
+        "Très dangereux ! On ne franchit jamais un passage à niveau quand un train " +
+        "arrive. Il fallait attendre qu'il soit passé avant de t'engager.",
+    },
+    hint: "Un train arrive sur la voie ferrée : peux-tu t'engager maintenant ?",
+  },
+
+  /* =======================================================================
+   *  NOUVEAUX SCÉNARIOS DE VITESSE
+   * =====================================================================*/
+  {
+    id: "pluie-autoroute",
+    title: "Autoroute sous la pluie",
+    kind: "speed",
+    cols: 13,
+    rows: 7,
+    roads: [{ col: 0, row: 3, w: 13, h: 2 }],
+    signs: [],
+    weather: "rain",
+    entry: { col: 7, limit: 110, sign: { type: "limit", value: 110 } },
+    startSpeed: 130,
+    vehicles: [
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        path: [[-1.2, 3.5], [14, 3.5]],
+      },
+    ],
+    rule: {
+      good:
+        "Bien joué ! Par temps de pluie, la vitesse maximale sur autoroute passe " +
+        "de 130 à 110 km/h (et de 110 à 100, de 90 à 80…). Tu as adapté ton allure.",
+      bad:
+        "Trop vite pour la pluie ! Sur autoroute, la limite tombe à 110 km/h en " +
+        "cas de précipitations. L'adhérence et la visibilité sont réduites.",
+    },
+    hint: "Il pleut sur l'autoroute : quelle est la vitesse maximale autorisée ?",
+  },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "zone-travaux",
+    title: "Zone de travaux",
+    kind: "speed",
+    cols: 13,
+    rows: 7,
+    roads: [{ col: 0, row: 3, w: 13, h: 2 }],
+    signs: [],
+    entry: { col: 7, limit: 70, sign: { type: "limit", value: 70 } },
+    startSpeed: 90,
+    vehicles: [
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        path: [[-1.2, 3.5], [14, 3.5]],
+      },
+    ],
+    rule: {
+      good:
+        "Parfait ! Une zone de travaux impose une limitation temporaire (ici 70 " +
+        "km/h). On ralentit pour la sécurité des ouvriers et à cause des voies " +
+        "rétrécies.",
+      bad:
+        "Trop vite en zone de travaux ! La limitation temporaire (70 km/h) doit " +
+        "être respectée : chaussée rétrécie, ouvriers à proximité.",
+    },
+    hint: "Panneau de limitation en zone de chantier : à quelle vitesse rouler ?",
+  },
 ];

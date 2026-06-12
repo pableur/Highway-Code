@@ -194,18 +194,23 @@
 
     drawGrass();
     data.roads.forEach(drawRoad);
+    if (data.tracks) data.tracks.forEach(drawTracks);
     if (data.roundabout) drawRoundabout(data.roundabout);
     if (scene.kind === "speed") drawCity(data);
     // Les marquages droits n'ont pas de sens à travers un rond-point
     if (!data.roundabout) drawLaneMarkings(data.roads);
+    if (data.crosswalks) data.crosswalks.forEach(drawCrosswalk);
     if (scene.kind === "speed") drawEntrySign(data);
     (data.signs || []).forEach(drawSign);
+    if (data.lights) data.lights.forEach(drawTrafficLight);
 
     // Véhicules : on dessine ceux qui ne sont pas encore "done"
     scene.vehicles.forEach((v) => {
       if (v.state === "done") return;
       drawVehicle(v);
     });
+
+    if (data.weather === "rain") drawRain();
   }
 
   function drawGrass() {
@@ -361,6 +366,123 @@
     ctx.setLineDash([]);
   }
 
+  // Voie ferrée : ballast + 2 rails + traverses. t = { col, row, w, h }
+  function drawTracks(t) {
+    const x = t.col * CELL,
+      y = t.row * CELL,
+      w = t.w * CELL,
+      h = t.h * CELL;
+    const horizontal = w >= h;
+    ctx.fillStyle = "#4f4334";
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = "#cfcfcf";
+    ctx.lineWidth = 3;
+    if (horizontal) {
+      const y1 = y + h * 0.34,
+        y2 = y + h * 0.66;
+      ctx.beginPath();
+      ctx.moveTo(x, y1);
+      ctx.lineTo(x + w, y1);
+      ctx.moveTo(x, y2);
+      ctx.lineTo(x + w, y2);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(0,0,0,0.35)";
+      ctx.lineWidth = 5;
+      for (let tx = x + 9; tx < x + w; tx += 18) {
+        ctx.beginPath();
+        ctx.moveTo(tx, y1 - 7);
+        ctx.lineTo(tx, y2 + 7);
+        ctx.stroke();
+      }
+    } else {
+      const x1 = x + w * 0.34,
+        x2 = x + w * 0.66;
+      ctx.beginPath();
+      ctx.moveTo(x1, y);
+      ctx.lineTo(x1, y + h);
+      ctx.moveTo(x2, y);
+      ctx.lineTo(x2, y + h);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(0,0,0,0.35)";
+      ctx.lineWidth = 5;
+      for (let ty = y + 9; ty < y + h; ty += 18) {
+        ctx.beginPath();
+        ctx.moveTo(x1 - 7, ty);
+        ctx.lineTo(x2 + 7, ty);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Passage piéton : bandes blanches (zébra). c = { col, row, w, h }
+  function drawCrosswalk(c) {
+    const x = c.col * CELL,
+      y = c.row * CELL,
+      w = c.w * CELL,
+      h = c.h * CELL;
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    if (w >= h) {
+      for (let sx = x + 4; sx < x + w - 4; sx += 14) {
+        ctx.fillRect(sx, y + 3, 7, h - 6);
+      }
+    } else {
+      for (let sy = y + 4; sy < y + h - 4; sy += 14) {
+        ctx.fillRect(x + 3, sy, w - 6, 7);
+      }
+    }
+  }
+
+  // Feu tricolore. l = { col, row, state: "red"|"orange"|"green"|"off" }
+  function drawTrafficLight(l) {
+    const { x, y } = cellCenter(l.col, l.row);
+    const bw = CELL * 0.28,
+      bh = CELL * 0.62;
+    ctx.fillStyle = "#181818";
+    roundRect(ctx, x - bw / 2, y - bh / 2, bw, bh, 4);
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(255,255,255,0.3)";
+    ctx.stroke();
+
+    const lamps = [
+      ["red", "#ff3b3b"],
+      ["orange", "#ffb02e"],
+      ["green", "#3ddc6a"],
+    ];
+    const r = bw * 0.3;
+    // Feu hors service : orange clignotant
+    const blinkOrange =
+      l.state === "off" && Math.floor(performance.now() / 500) % 2 === 0;
+    lamps.forEach((lp, i) => {
+      const ly = y - bh * 0.3 + i * (bh * 0.3);
+      const on = l.state === lp[0] || (blinkOrange && lp[0] === "orange");
+      ctx.beginPath();
+      ctx.arc(x, ly, r, 0, Math.PI * 2);
+      ctx.fillStyle = on ? lp[1] : "rgba(255,255,255,0.1)";
+      if (on) {
+        ctx.shadowColor = lp[1];
+        ctx.shadowBlur = 10;
+      }
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+  }
+
+  // Pluie : fines hachures animées par-dessus la scène.
+  function drawRain() {
+    ctx.strokeStyle = "rgba(180,200,255,0.35)";
+    ctx.lineWidth = 2;
+    const off = Math.floor(performance.now() / 6);
+    for (let i = 0; i < 70; i++) {
+      const x = (i * 67) % canvas.width;
+      const y = (i * 113 + off) % canvas.height;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - 6, y + 13);
+      ctx.stroke();
+    }
+  }
+
   // Lignes blanches discontinues au centre de chaque route
   function drawLaneMarkings(roads) {
     ctx.strokeStyle = "rgba(255,255,255,0.65)";
@@ -383,81 +505,143 @@
     ctx.setLineDash([]);
   }
 
+  // Dimensions selon la classe de véhicule.
+  function vehicleDims(v) {
+    switch (v.vClass) {
+      case "bus":
+        return { len: CAR_LEN * 1.7, w: CAR_W * 1.15 };
+      case "truck":
+        return { len: CAR_LEN * 1.95, w: CAR_W * 1.2 };
+      case "train":
+        return { len: CAR_LEN * 2.6, w: CAR_W * 1.3 };
+      case "bike":
+        return { len: CAR_LEN * 0.62, w: CAR_W * 0.5 };
+      default:
+        return { len: CAR_LEN, w: CAR_W };
+    }
+  }
+
   function drawVehicle(v) {
     const { x, y, angle } = posAlongPath(v.path, v.progress);
     const isExpected =
       scene.kind === "order" &&
       scene.status === "playing" &&
       expectedVehicle() === v;
+    const dims = vehicleDims(v);
 
-    // Halo d'indice : pulse autour des véhicules cliquables
+    // Halo d'indice : pulse autour des usagers cliquables
     if (v.state === "waiting") {
       const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 300);
       const strong = isExpected && elapsed > HINT_DELAY; // accentue le bon choix
       ctx.beginPath();
-      ctx.arc(x, y, CAR_LEN * 0.72, 0, Math.PI * 2);
+      ctx.arc(x, y, Math.max(dims.len * 0.72, CELL * 0.5), 0, Math.PI * 2);
       ctx.fillStyle = strong
         ? `rgba(255, 206, 90, ${0.18 + pulse * 0.3})`
         : `rgba(255, 255, 255, ${0.06 + pulse * 0.12})`;
       ctx.fill();
     }
 
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
+    // Piéton : silhouette simple, pas de carrosserie.
+    if (v.vClass === "pedestrian") {
+      drawPedestrian(v, x, y);
+    } else {
+      const L = dims.len;
+      const W = dims.w;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
 
-    // Carrosserie
-    roundRect(ctx, -CAR_LEN / 2, -CAR_W / 2, CAR_LEN, CAR_W, 8);
-    ctx.fillStyle = v.color;
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = v.isPlayer ? "#ffffff" : "rgba(0,0,0,0.35)";
-    ctx.stroke();
-
-    // Pare-brise (vers l'avant = +x)
-    roundRect(
-      ctx,
-      CAR_LEN * 0.06,
-      -CAR_W * 0.34,
-      CAR_LEN * 0.26,
-      CAR_W * 0.68,
-      4,
-    );
-    ctx.fillStyle = "rgba(20,30,50,0.78)";
-    ctx.fill();
-
-    // Flèche de direction sur le capot
-    ctx.beginPath();
-    ctx.moveTo(CAR_LEN * 0.4, 0);
-    ctx.lineTo(CAR_LEN * 0.26, -CAR_W * 0.22);
-    ctx.lineTo(CAR_LEN * 0.26, CAR_W * 0.22);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.fill();
-
-    // Gyrophare clignotant bleu/rouge pour les véhicules prioritaires
-    if (v.emergency) {
-      const on = Math.floor(performance.now() / 220) % 2 === 0;
-      ctx.beginPath();
-      ctx.arc(0, 0, CAR_W * 0.22, 0, Math.PI * 2);
-      ctx.fillStyle = on ? "#2f6bff" : "#ff2d2d";
+      // Carrosserie
+      roundRect(ctx, -L / 2, -W / 2, L, W, v.vClass === "bike" ? 4 : 8);
+      ctx.fillStyle = v.color;
       ctx.fill();
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = "rgba(255,255,255,0.9)";
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = v.isPlayer ? "#ffffff" : "rgba(0,0,0,0.35)";
       ctx.stroke();
+
+      if (v.vClass === "bus" || v.vClass === "train") {
+        // Rangée de fenêtres
+        ctx.fillStyle = "rgba(20,30,50,0.55)";
+        for (let i = -1; i <= 1; i++) {
+          roundRect(ctx, i * L * 0.26 - L * 0.06, -W * 0.3, L * 0.12, W * 0.6, 2);
+          ctx.fill();
+        }
+      } else if (v.vClass !== "bike") {
+        // Pare-brise (vers l'avant = +x)
+        roundRect(ctx, L * 0.06, -W * 0.34, L * 0.26, W * 0.68, 4);
+        ctx.fillStyle = "rgba(20,30,50,0.78)";
+        ctx.fill();
+      }
+
+      // Flèche de direction sur le capot
+      ctx.beginPath();
+      ctx.moveTo(L * 0.4, 0);
+      ctx.lineTo(L * 0.26, -W * 0.22);
+      ctx.lineTo(L * 0.26, W * 0.22);
+      ctx.closePath();
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.fill();
+
+      // Clignotant orange (avant + arrière du côté indiqué), clignote
+      if (v.blinker) {
+        const on = Math.floor(performance.now() / 350) % 2 === 0;
+        if (on) {
+          // côté "left" = gauche du sens de marche (vers -y), "right" = +y
+          const sy = (v.blinker === "left" ? -1 : 1) * W * 0.5;
+          ctx.fillStyle = "#ffb02e";
+          ctx.shadowColor = "#ffb02e";
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.arc(L * 0.4, sy, W * 0.16, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(-L * 0.4, sy, W * 0.16, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+      }
+
+      // Gyrophare clignotant bleu/rouge pour les véhicules prioritaires
+      if (v.emergency) {
+        const on = Math.floor(performance.now() / 220) % 2 === 0;
+        ctx.beginPath();
+        ctx.arc(0, 0, W * 0.22, 0, Math.PI * 2);
+        ctx.fillStyle = on ? "#2f6bff" : "#ff2d2d";
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "rgba(255,255,255,0.9)";
+        ctx.stroke();
+      }
+
+      ctx.restore();
     }
 
-    ctx.restore();
-
-    // Libellé au-dessus du véhicule ("MOI" pour le joueur, sinon v.label)
+    // Libellé au-dessus de l'usager ("MOI" pour le joueur, sinon v.label)
     const label = v.isPlayer ? "MOI" : v.label;
     if (label) {
       ctx.font = "bold 11px system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "alphabetic";
       ctx.fillStyle = "rgba(255,255,255,0.92)";
-      ctx.fillText(label, x, y - CAR_LEN * 0.78);
+      ctx.fillText(label, x, y - dims.len * 0.62 - 6);
     }
+  }
+
+  // Silhouette de piéton vue de dessus (corps + tête).
+  function drawPedestrian(v, x, y) {
+    const r = CELL * 0.13;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = v.color || "#ffd21e";
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(0,0,0,0.4)";
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y - r * 1.7, r * 0.95, 0, Math.PI * 2);
+    ctx.fillStyle = "#f0d0a0";
+    ctx.fill();
+    ctx.stroke();
   }
 
   // --- Panneaux ---------------------------------------------------------------
@@ -532,6 +716,43 @@
       ctx.lineWidth = 4;
       ctx.strokeStyle = "#ffffff";
       ctx.stroke();
+    } else if (sign.type === "railway") {
+      // Passage à niveau : 2 feux rouges clignotants (alternés) + croix de Saint-André
+      const phase = Math.floor(performance.now() / 400) % 2 === 0;
+      const lr = r * 0.26;
+      [
+        [-r * 0.5, phase],
+        [r * 0.5, !phase],
+      ].forEach(([lx, lit]) => {
+        ctx.beginPath();
+        ctx.arc(lx, -r * 1.25, lr, 0, Math.PI * 2);
+        ctx.fillStyle = lit ? "#ff2d2d" : "rgba(255,45,45,0.18)";
+        if (lit) {
+          ctx.shadowColor = "#ff2d2d";
+          ctx.shadowBlur = 8;
+        }
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+      // Croix de Saint-André (saltire blanc bordé de rouge)
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#d11e1e";
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.moveTo(-r, -r * 0.45);
+      ctx.lineTo(r, r * 0.85);
+      ctx.moveTo(r, -r * 0.45);
+      ctx.lineTo(-r, r * 0.85);
+      ctx.stroke();
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(-r, -r * 0.45);
+      ctx.lineTo(r, r * 0.85);
+      ctx.moveTo(r, -r * 0.45);
+      ctx.lineTo(-r, r * 0.85);
+      ctx.stroke();
+      ctx.lineCap = "butt";
     }
     ctx.restore();
   }
@@ -589,7 +810,7 @@
     }
     scene.vehicles.forEach((v) => {
       if (v.state !== "moving") return;
-      v.progress += DRIVE_SPEED * dt;
+      v.progress += DRIVE_SPEED * (v.speedMul || 1) * dt;
       if (v.progress >= v.path.length - 1) {
         v.progress = v.path.length - 1;
         v.state = "done";
@@ -691,7 +912,8 @@
     const hit = scene.vehicles.find((v) => {
       if (v.state !== "waiting") return false;
       const p = posAlongPath(v.path, v.progress);
-      return Math.hypot(p.x - x, p.y - y) < CAR_LEN * 0.6;
+      const radius = Math.max(vehicleDims(v).len * 0.6, CELL * 0.45);
+      return Math.hypot(p.x - x, p.y - y) < radius;
     });
     if (!hit) return;
 
@@ -727,14 +949,13 @@
     }
   }
 
-  // Appelée quand un véhicule a fini son trajet
+  // Appelée quand un véhicule a fini son trajet.
+  // On affiche la règle quand plus aucun véhicule n'est en mouvement (gère aussi
+  // les scénarios où le joueur ne bouge pas, ex. feu rouge respecté).
   function onVehicleArrived() {
     if (scene.status !== "won") return;
-    // Victoire confirmée seulement quand la voiture du joueur est sortie
-    const player = scene.vehicles.find((v) => v.isPlayer);
-    if (player && player.state === "done") {
-      showRulePanel(true);
-    }
+    const stillMoving = scene.vehicles.some((v) => v.state === "moving");
+    if (!stillMoving) showRulePanel(true);
   }
 
   /* ===========================================================================
