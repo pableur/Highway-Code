@@ -207,14 +207,28 @@
     ctx.fillStyle = "rgba(255,255,255,0.85)";
     ctx.fill();
 
+    // Gyrophare clignotant bleu/rouge pour les véhicules prioritaires
+    if (v.emergency) {
+      const on = Math.floor(performance.now() / 220) % 2 === 0;
+      ctx.beginPath();
+      ctx.arc(0, 0, CAR_W * 0.22, 0, Math.PI * 2);
+      ctx.fillStyle = on ? "#2f6bff" : "#ff2d2d";
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "rgba(255,255,255,0.9)";
+      ctx.stroke();
+    }
+
     ctx.restore();
 
-    // Étiquette "MOI" pour la voiture du joueur
-    if (v.isPlayer) {
+    // Libellé au-dessus du véhicule ("MOI" pour le joueur, sinon v.label)
+    const label = v.isPlayer ? "MOI" : v.label;
+    if (label) {
       ctx.font = "bold 11px system-ui, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillStyle = "rgba(255,255,255,0.9)";
-      ctx.fillText("MOI", x, y - CAR_LEN * 0.78);
+      ctx.textBaseline = "alphabetic";
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.fillText(label, x, y - CAR_LEN * 0.78);
     }
   }
 

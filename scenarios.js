@@ -152,4 +152,166 @@ const SCENARIOS = [
     },
     hint: "Ce losange jaune change tout : qui est prioritaire ?",
   },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "stop",
+    title: "Panneau STOP",
+    cols: 9,
+    rows: 9,
+    roads: [
+      { col: 0, row: 4, w: 9, h: 2 },
+      { col: 4, row: 0, w: 2, h: 9 },
+    ],
+    signs: [
+      { type: "stop", col: 6, row: 6 }, // STOP sur l'approche du joueur
+    ],
+    vehicles: [
+      {
+        id: "cross",
+        color: "#ff9f5a",
+        // Circule sur la route croisée (vient de la droite, file vers la gauche)
+        path: [[8, 4], [5, 4], [4, 4], [3, 4], [0, 4]],
+      },
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        path: [[5, 8], [5, 6], [5, 5], [5, 4], [5, 0]],
+      },
+    ],
+    expectedOrder: ["cross", "player"],
+    rule: {
+      good:
+        "Très bien ! Au panneau STOP, l'arrêt est OBLIGATOIRE (marquage des roues " +
+        "à l'arrêt complet), puis tu cèdes le passage. Tu as laissé passer le " +
+        "véhicule sur la route croisée avant de repartir.",
+      bad:
+        "Le panneau STOP impose de t'arrêter complètement et de céder le passage " +
+        "à toute la circulation de la route croisée. Tu ne pouvais pas repartir " +
+        "avant que l'autre véhicule soit passé.",
+    },
+    hint: "STOP : arrêt obligatoire. Qui passe pendant que tu es à l'arrêt ?",
+  },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "turn-left",
+    title: "Tourner à gauche",
+    cols: 9,
+    rows: 9,
+    roads: [
+      { col: 0, row: 4, w: 9, h: 2 },
+      { col: 4, row: 0, w: 2, h: 9 },
+    ],
+    signs: [],
+    vehicles: [
+      {
+        id: "oncoming",
+        color: "#ffce5a",
+        // Arrive d'en face (du haut) et continue tout droit
+        path: [[4, 0], [4, 3], [4, 4], [4, 5], [4, 8]],
+      },
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        // Vient du bas et TOURNE À GAUCHE (vers l'ouest)
+        path: [[5, 8], [5, 6], [5, 5], [4, 4], [2, 4], [0, 4]],
+      },
+    ],
+    expectedOrder: ["oncoming", "player"],
+    rule: {
+      good:
+        "Parfait ! Pour tourner à gauche, tu dois laisser passer les véhicules " +
+        "qui arrivent en face et vont tout droit (ou tournent à leur droite). Tu " +
+        "as attendu que la voie soit libre avant de virer.",
+      bad:
+        "En tournant à gauche, tu coupes la trajectoire des véhicules venant d'en " +
+        "face : tu dois leur céder le passage. Il fallait laisser passer la " +
+        "voiture d'en face avant de tourner.",
+    },
+    hint: "Tu veux tourner à gauche : qui coupes-tu en virant ?",
+  },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "emergency",
+    title: "Véhicule prioritaire",
+    cols: 9,
+    rows: 9,
+    roads: [
+      { col: 0, row: 4, w: 9, h: 2 },
+      { col: 4, row: 0, w: 2, h: 9 },
+    ],
+    signs: [
+      { type: "priority", col: 6, row: 6 }, // le joueur est pourtant prioritaire…
+    ],
+    vehicles: [
+      {
+        id: "ambulance",
+        color: "#f4f7ff",
+        label: "SAMU",
+        emergency: true, // gyrophare + sirène
+        path: [[0, 5], [3, 5], [4, 5], [5, 5], [8, 5]],
+      },
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        path: [[5, 8], [5, 6], [5, 5], [5, 4], [5, 0]],
+      },
+    ],
+    expectedOrder: ["ambulance", "player"],
+    rule: {
+      good:
+        "Excellent réflexe ! Même avec une route prioritaire, on cède TOUJOURS le " +
+        "passage à un véhicule d'intérêt général prioritaire en intervention " +
+        "(gyrophare bleu + sirène). Tu l'as laissé passer avant de repartir.",
+      bad:
+        "Un véhicule prioritaire en intervention (gyrophare + sirène) prime sur " +
+        "tout, même sur ta priorité ! Tu devais te ranger et le laisser passer " +
+        "avant de t'engager.",
+    },
+    hint: "Gyrophare bleu et sirène… cela prime-t-il sur ta priorité ?",
+  },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "priority-right-mine",
+    title: "Priorité à droite — à toi de passer",
+    cols: 9,
+    rows: 9,
+    roads: [
+      { col: 0, row: 4, w: 9, h: 2 },
+      { col: 4, row: 0, w: 2, h: 9 },
+    ],
+    signs: [],
+    vehicles: [
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        path: [[5, 8], [5, 6], [5, 5], [5, 4], [5, 0]],
+      },
+      {
+        id: "left",
+        color: "#ffce5a",
+        // Arrive de la GAUCHE du joueur : c'est elle qui doit céder
+        path: [[0, 5], [3, 5], [4, 5], [5, 5], [8, 5]],
+      },
+    ],
+    expectedOrder: ["player", "left"],
+    rule: {
+      good:
+        "Bien vu ! Sans signalisation, la priorité à droite s'applique. L'autre " +
+        "voiture arrive sur ta GAUCHE : tu es donc à sa droite, c'est toi qui es " +
+        "prioritaire. Tu passes en premier, sans hésiter.",
+      bad:
+        "Tu étais prioritaire ! L'autre véhicule venait de ta gauche : tu te " +
+        "trouvais à sa droite, c'était donc à toi de passer en premier (priorité " +
+        "à droite).",
+    },
+    hint: "L'autre vient de ta gauche… de quel côté es-tu pour elle ?",
+  },
 ];
