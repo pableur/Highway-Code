@@ -45,12 +45,44 @@
   const speedLimitInfo = document.getElementById("speedLimitInfo");
   const brakeBtn = document.getElementById("brakeBtn");
   const accelBtn = document.getElementById("accelBtn");
+  // Duel 1v1
+  const toolbar = document.getElementById("toolbar");
+  const duelBtn = document.getElementById("duelBtn");
+  const duelHud = document.getElementById("duelHud");
+  const duelTimer = document.querySelector(".duel-hud__timer");
+  const duelTime = document.getElementById("duelTime");
+  const duelScore = document.getElementById("duelScore");
+  const duelFautes = document.getElementById("duelFautes");
+  const duelOppScore = document.getElementById("duelOppScore");
+  const duelOppFautes = document.getElementById("duelOppFautes");
+  const duelOverlay = document.getElementById("duelOverlay");
+  const duelClose = document.getElementById("duelClose");
+  const duelLobby = document.getElementById("duelLobby");
+  const duelResults = document.getElementById("duelResults");
+  const duelResultIcon = document.getElementById("duelResultIcon");
+  const duelResultTitle = document.getElementById("duelResultTitle");
+  const duelResultDetail = document.getElementById("duelResultDetail");
+  const duelReplay = document.getElementById("duelReplay");
+  const createBtn = document.getElementById("createBtn");
+  const joinBtn = document.getElementById("joinBtn");
+  const joinCode = document.getElementById("joinCode");
+  const duelCode = document.getElementById("duelCode");
+  const duelCodeValue = document.getElementById("duelCodeValue");
+  const duelStatus = document.getElementById("duelStatus");
+  const startBtn = document.getElementById("startBtn");
 
   // --- État courant -----------------------------------------------------------
   let scenarioIndex = 0;
   let scene = null; // scénario instancié et "vivant"
   let lastTs = 0; // timestamp précédent (pour le delta-time)
   let elapsed = 0; // temps écoulé depuis le dernier événement (pour l'indice)
+
+  // --- Duel 1v1 (réseau WebRTC via PeerJS) -----------------------------------
+  const MATCH_DURATION = 30; // durée d'un duel en secondes
+  let match = null; // null en mode solo ; objet "match vivant" en duel
+  let peer = null; // instance PeerJS
+  let conn = null; // canal de données vers l'adversaire
+  let myRole = null; // "host" | "guest"
 
   /* ===========================================================================
    *  HELPERS GÉOMÉTRIE
@@ -107,6 +139,7 @@
       vehicles,
       nextIndex: 0, // prochaine voiture attendue dans expectedOrder
       status: "playing", // "playing" | "won" | "lost"
+      resolved: false, // verrou : empêche un 2e dénouement (utile en duel)
     };
 
     if (kind === "speed") {
@@ -532,6 +565,8 @@
     const dt = lastTs ? Math.min((ts - lastTs) / 1000, 0.05) : 0;
     lastTs = ts;
 
+    if (match && match.started && !match.localDone) updateMatchTimer();
+
     if (scene.kind === "speed") {
       tickSpeed(dt);
     } else {
@@ -567,7 +602,7 @@
     const s = scene.speed;
     const car = scene.vehicles[0];
 
-    if (scene.status === "playing") {
+    if (scene.status === "playing" && !scene.resolved && !(match && match.localDone)) {
       if (s.brake) s.value -= BRAKE_RATE * dt;
       if (s.accel) s.value += ACCEL_RATE * dt;
       s.value = Math.max(0, Math.min(SPEED_MAX, s.value));
@@ -584,21 +619,31 @@
       // Franchissement de la ligne d'entrée : on évalue la vitesse une fois.
       if (!s.checked && x >= entryX) {
         s.checked = true;
-        if (s.value > scene.data.entry.limit + 0.5) {
-          scene.status = "lost";
-          triggerShake();
-          setBanner(
-            "bad",
-            `💥 Excès de vitesse : ${Math.round(s.value)} km/h pour ${scene.data.entry.limit} !`,
-          );
-          showRulePanel(false);
+        const over = s.value > scene.data.entry.limit + 0.5;
+        if (over) {
+          scene.resolved = true;
+          if (match) {
+            matchFault();
+          } else {
+            scene.status = "lost";
+            triggerShake();
+            setBanner(
+              "bad",
+              `💥 Excès de vitesse : ${Math.round(s.value)} km/h pour ${scene.data.entry.limit} !`,
+            );
+            showRulePanel(false);
+          }
+        } else if (match) {
+          // En duel : succès immédiat dès le franchissement (pas d'attente).
+          scene.resolved = true;
+          matchSolved();
         } else {
           s.passed = true;
           setBanner("ok", "✅ Bonne vitesse, tu entres en sécurité.");
         }
       }
 
-      // Sortie de scène à la bonne vitesse -> victoire
+      // Solo : victoire confirmée à la sortie de scène.
       if (s.passed && car.progress >= maxIdx) {
         scene.status = "won";
         showRulePanel(true);
@@ -633,6 +678,7 @@
 
   function handleClick(evt) {
     if (scene.kind !== "order" || scene.status !== "playing") return;
+    if (scene.resolved || (match && match.localDone)) return;
     const { x, y } = eventToCanvas(evt);
 
     // Trouve un véhicule "waiting" sous le clic
@@ -652,14 +698,18 @@
       scene.nextIndex += 1;
       updateProgressInfo();
       if (scene.nextIndex >= scene.data.expectedOrder.length) {
-        // Tous les bons clics ont été faits : victoire (on attend l'arrivée)
+        // Scénario résolu
+        scene.resolved = true;
+        if (match) return matchSolved();
         scene.status = "won";
         setBanner("ok", "✅ Bien joué ! Tout le monde passe en sécurité.");
       } else {
         setBanner("ok", "👍 Bon choix, continue.");
       }
     } else {
-      // Mauvais ordre : échec pédagogique
+      // Mauvais ordre
+      scene.resolved = true;
+      if (match) return matchFault();
       scene.status = "lost";
       triggerShake();
       setBanner("bad", "💥 Mauvais ordre de passage !");
@@ -721,6 +771,311 @@
   }
 
   /* ===========================================================================
+   *  DUEL 1v1 — contrôleur de match
+   * =========================================================================*/
+
+  // Génère une série de scénarios identique pour les deux joueurs.
+  // Mélange les indices puis répète la liste (assez long pour 30 s).
+  function makeOrder() {
+    const idx = SCENARIOS.map((_, i) => i);
+    for (let i = idx.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [idx[i], idx[j]] = [idx[j], idx[i]];
+    }
+    return [...idx, ...idx, ...idx];
+  }
+
+  function beginMatch(order) {
+    closeDuelOverlay();
+    toolbar.hidden = true;
+    duelHud.hidden = false;
+    match = {
+      started: true,
+      order,
+      pos: 0,
+      score: 0,
+      fautes: 0,
+      startTime: performance.now(),
+      timeLeft: MATCH_DURATION,
+      localDone: false,
+      reason: null,
+      opp: { score: 0, fautes: 0, done: false, reason: null },
+    };
+    updateDuelHud();
+    loadScenario(order[0]);
+  }
+
+  function matchSolved() {
+    if (!match || match.localDone) return;
+    match.score += 1;
+    setBanner("ok", "✅ +1 point !");
+    sendProgress();
+    updateDuelHud();
+    nextMatchScenario();
+  }
+
+  function matchFault() {
+    if (!match || match.localDone) return;
+    match.fautes += 1;
+    triggerShake();
+    setBanner("bad", `💥 Faute ! (${match.fautes}/3)`);
+    sendProgress();
+    updateDuelHud();
+    if (match.fautes >= 3) {
+      finishLocalRun("eliminated");
+    } else {
+      nextMatchScenario();
+    }
+  }
+
+  function nextMatchScenario() {
+    // Petite pause pour laisser voir le feedback, puis scénario suivant.
+    setTimeout(() => {
+      if (!match || match.localDone) return;
+      match.pos += 1;
+      loadScenario(match.order[match.pos % match.order.length]);
+    }, 450);
+  }
+
+  function updateMatchTimer() {
+    const left = Math.max(
+      0,
+      MATCH_DURATION - (performance.now() - match.startTime) / 1000,
+    );
+    match.timeLeft = left;
+    updateDuelHud();
+    if (left <= 0) finishLocalRun("time");
+  }
+
+  function finishLocalRun(reason) {
+    if (!match || match.localDone) return;
+    match.localDone = true;
+    match.reason = reason;
+    sendResult();
+    updateDuelHud();
+    if (!match.opp.done) {
+      setBanner(
+        "info",
+        reason === "eliminated"
+          ? "Éliminé (3 fautes). En attente de l'adversaire…"
+          : "Temps écoulé ! En attente de l'adversaire…",
+      );
+    }
+    checkBothDone();
+  }
+
+  function checkBothDone() {
+    if (match && match.localDone && match.opp.done) showResults();
+  }
+
+  function showResults() {
+    duelOverlay.hidden = false;
+    duelLobby.hidden = true;
+    duelResults.hidden = false;
+
+    const me = match;
+    const opp = match.opp;
+    const meElim = me.reason === "eliminated";
+    const oppElim = opp.reason === "eliminated";
+
+    let outcome;
+    if (meElim && !oppElim) outcome = "lose";
+    else if (oppElim && !meElim) outcome = "win";
+    else if (me.score > opp.score) outcome = "win";
+    else if (me.score < opp.score) outcome = "lose";
+    else if (me.fautes < opp.fautes) outcome = "win";
+    else if (me.fautes > opp.fautes) outcome = "lose";
+    else outcome = "draw";
+
+    duelResultIcon.textContent =
+      outcome === "win" ? "🏆" : outcome === "lose" ? "😞" : "🤝";
+    duelResultTitle.textContent =
+      outcome === "win" ? "Victoire !" : outcome === "lose" ? "Défaite" : "Égalité";
+    duelResultDetail.textContent =
+      `Toi : ${me.score} pt(s), ${me.fautes} faute(s)${meElim ? " — éliminé" : ""}. ` +
+      `Adversaire : ${opp.score} pt(s), ${opp.fautes} faute(s)${oppElim ? " — éliminé" : ""}.`;
+  }
+
+  function updateDuelHud() {
+    if (!match) return;
+    duelTime.textContent = String(Math.ceil(match.timeLeft));
+    duelTimer.classList.toggle("is-urgent", match.timeLeft <= 5);
+    duelScore.textContent = String(match.score);
+    duelFautes.textContent = `${match.fautes}/3`;
+    duelOppScore.textContent = String(match.opp.score);
+    duelOppFautes.textContent = `${match.opp.fautes}/3`;
+  }
+
+  /* ===========================================================================
+   *  DUEL 1v1 — réseau (PeerJS / WebRTC)
+   * =========================================================================*/
+
+  function genCode() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sans I/O/0/1 ambigus
+    let s = "";
+    for (let i = 0; i < 4; i++)
+      s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+  }
+
+  const peerId = (code) => "cdr-" + code; // préfixe pour limiter les collisions
+
+  function setDuelStatus(text) {
+    duelStatus.textContent = text;
+  }
+
+  function openDuelOverlay() {
+    duelOverlay.hidden = false;
+    duelLobby.hidden = false;
+    duelResults.hidden = true;
+    duelCode.hidden = true;
+    startBtn.hidden = true;
+    setDuelStatus("");
+  }
+
+  function closeDuelOverlay() {
+    duelOverlay.hidden = true;
+  }
+
+  // Quitte complètement le duel et revient au mode solo.
+  function exitDuel() {
+    closeDuelOverlay();
+    duelHud.hidden = true;
+    toolbar.hidden = false;
+    match = null;
+    if (conn) {
+      try { conn.close(); } catch (e) {}
+      conn = null;
+    }
+    if (peer) {
+      try { peer.destroy(); } catch (e) {}
+      peer = null;
+    }
+    myRole = null;
+    createBtn.disabled = false;
+    duelCode.hidden = true;
+    startBtn.hidden = true;
+    setDuelStatus("");
+    loadScenario(scenarioIndex);
+  }
+
+  function createGame() {
+    if (typeof Peer === "undefined") {
+      setDuelStatus("PeerJS indisponible (vérifie ta connexion Internet).");
+      return;
+    }
+    myRole = "host";
+    createBtn.disabled = true;
+    const code = genCode();
+    setDuelStatus("Création de la partie…");
+    peer = new Peer(peerId(code));
+    peer.on("open", () => {
+      duelCode.hidden = false;
+      duelCodeValue.textContent = code;
+      setDuelStatus("Partage le code, puis attends ton adversaire…");
+    });
+    peer.on("connection", (c) => {
+      conn = c;
+      bindConn();
+    });
+    peer.on("error", (err) => {
+      setDuelStatus("Erreur réseau : " + err.type);
+      createBtn.disabled = false;
+    });
+  }
+
+  function joinGame() {
+    if (typeof Peer === "undefined") {
+      setDuelStatus("PeerJS indisponible (vérifie ta connexion Internet).");
+      return;
+    }
+    const code = joinCode.value.trim().toUpperCase();
+    if (code.length < 4) {
+      setDuelStatus("Saisis le code à 4 caractères.");
+      return;
+    }
+    myRole = "guest";
+    setDuelStatus("Connexion…");
+    peer = new Peer();
+    peer.on("open", () => {
+      conn = peer.connect(peerId(code));
+      bindConn();
+    });
+    peer.on("error", (err) => setDuelStatus("Erreur réseau : " + err.type));
+  }
+
+  function bindConn() {
+    conn.on("open", () => {
+      if (myRole === "host") {
+        startBtn.hidden = false;
+        setDuelStatus("Adversaire connecté ✅ — lance le duel !");
+      } else {
+        setDuelStatus("Connecté ✅ — en attente du lancement par l'hôte…");
+      }
+    });
+    conn.on("data", onData);
+    conn.on("close", () => {
+      if (!match || !match.localDone) setDuelStatus("Adversaire déconnecté.");
+    });
+  }
+
+  function send(msg) {
+    if (conn && conn.open) conn.send(msg);
+  }
+  function sendProgress() {
+    send({ type: "progress", score: match.score, fautes: match.fautes });
+  }
+  function sendResult() {
+    send({
+      type: "result",
+      score: match.score,
+      fautes: match.fautes,
+      reason: match.reason,
+    });
+  }
+
+  function onData(msg) {
+    if (!msg || !msg.type) return;
+    if (msg.type === "start") {
+      beginMatch(msg.order);
+    } else if (msg.type === "progress") {
+      if (!match) return;
+      match.opp.score = msg.score;
+      match.opp.fautes = msg.fautes;
+      updateDuelHud();
+    } else if (msg.type === "result") {
+      if (!match) return;
+      match.opp.score = msg.score;
+      match.opp.fautes = msg.fautes;
+      match.opp.done = true;
+      match.opp.reason = msg.reason;
+      updateDuelHud();
+      checkBothDone();
+    }
+  }
+
+  function hostStart() {
+    const order = makeOrder();
+    send({ type: "start", order });
+    beginMatch(order);
+  }
+
+  // Nouvelle manche (en gardant la connexion).
+  function replayDuel() {
+    match = null;
+    duelHud.hidden = true;
+    duelResults.hidden = true;
+    duelLobby.hidden = false;
+    duelOverlay.hidden = false;
+    if (myRole === "host") {
+      startBtn.hidden = false;
+      setDuelStatus("Prêt pour une nouvelle manche — lance le duel !");
+    } else {
+      setDuelStatus("En attente du lancement par l'hôte…");
+    }
+  }
+
+  /* ===========================================================================
    *  INITIALISATION
    * =========================================================================*/
 
@@ -760,6 +1115,17 @@
   }
   bindHold(brakeBtn, "brake");
   bindHold(accelBtn, "accel");
+
+  // Événements du duel 1v1
+  duelBtn.addEventListener("click", openDuelOverlay);
+  duelClose.addEventListener("click", exitDuel);
+  createBtn.addEventListener("click", createGame);
+  joinBtn.addEventListener("click", joinGame);
+  joinCode.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") joinGame();
+  });
+  startBtn.addEventListener("click", hostStart);
+  duelReplay.addEventListener("click", replayDuel);
 
   // Go !
   populateSelect();

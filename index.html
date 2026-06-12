@@ -13,10 +13,26 @@
       <p class="app__subtitle">Clique sur les véhicules dans le bon ordre pour respecter les priorités.</p>
     </header>
 
-    <div class="toolbar">
+    <div class="toolbar" id="toolbar">
       <label for="scenarioSelect" class="toolbar__label">Scénario</label>
       <select id="scenarioSelect" class="toolbar__select"></select>
       <button id="restartBtn" class="btn btn--ghost" type="button">↺ Recommencer</button>
+      <button id="duelBtn" class="btn btn--primary" type="button">⚔️ Duel 1v1</button>
+    </div>
+
+    <!-- Barre de duel (pendant un match) -->
+    <div id="duelHud" class="duel-hud" hidden>
+      <div class="duel-hud__side">
+        <span class="duel-hud__label">Toi</span>
+        <span class="duel-hud__score" id="duelScore">0</span>
+        <span class="duel-hud__fautes" id="duelFautes">0/3</span>
+      </div>
+      <div class="duel-hud__timer"><span id="duelTime">30</span><small>s</small></div>
+      <div class="duel-hud__side duel-hud__side--opp">
+        <span class="duel-hud__label">Adversaire</span>
+        <span class="duel-hud__score" id="duelOppScore">0</span>
+        <span class="duel-hud__fautes" id="duelOppFautes">0/3</span>
+      </div>
     </div>
 
     <main class="stage">
@@ -59,6 +75,47 @@
     </footer>
   </div>
 
+  <!-- Overlay duel : lobby (créer/rejoindre) + résultats -->
+  <div id="duelOverlay" class="overlay" hidden>
+    <div class="overlay__card">
+      <button id="duelClose" class="overlay__close" type="button" aria-label="Fermer">✕</button>
+
+      <!-- Lobby -->
+      <div id="duelLobby">
+        <h2>⚔️ Duel 1 contre 1</h2>
+        <p class="overlay__intro">
+          Même série de scénarios pour les deux joueurs. En <b>30 secondes</b>,
+          enchaîne le maximum de bonnes réponses. <b>3 fautes</b> et tu es éliminé !
+        </p>
+
+        <div class="duel-actions">
+          <button id="createBtn" class="btn btn--primary" type="button">Créer une partie</button>
+          <div class="duel-join">
+            <input id="joinCode" class="duel-join__input" placeholder="CODE" maxlength="4" autocomplete="off" />
+            <button id="joinBtn" class="btn btn--ghost" type="button">Rejoindre</button>
+          </div>
+        </div>
+
+        <div id="duelCode" class="duel-code" hidden>
+          <span>Code de la partie</span>
+          <strong id="duelCodeValue">—</strong>
+        </div>
+
+        <div id="duelStatus" class="duel-status"></div>
+        <button id="startBtn" class="btn btn--primary" type="button" hidden>🚦 Démarrer le duel</button>
+      </div>
+
+      <!-- Résultats -->
+      <div id="duelResults" hidden>
+        <div id="duelResultIcon" class="duel-result__icon">🏆</div>
+        <h2 id="duelResultTitle">Résultat</h2>
+        <p id="duelResultDetail" class="overlay__intro"></p>
+        <button id="duelReplay" class="btn btn--primary" type="button">Rejouer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="scenarios.js"></script>
   <script src="game.js"></script>
 </body>
