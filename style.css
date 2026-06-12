@@ -284,6 +284,19 @@ html, body {
 .duel-code span { font-size: 12px; color: var(--muted); }
 .duel-code strong { font-size: 34px; letter-spacing: 8px; color: var(--accent); }
 
+.duel-link { display: flex; gap: 8px; margin-top: 10px; }
+.duel-link__input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  border: 1px solid #33476f;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12px;
+  padding: 8px 10px;
+}
+.duel-link .btn { white-space: nowrap; }
+
 .duel-status { margin-top: 14px; min-height: 20px; font-size: 14px; color: var(--muted); }
 #startBtn { margin-top: 14px; width: 100%; }
 #startBtn[hidden] { display: none; }

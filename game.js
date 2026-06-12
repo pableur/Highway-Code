@@ -68,6 +68,8 @@
   const joinCode = document.getElementById("joinCode");
   const duelCode = document.getElementById("duelCode");
   const duelCodeValue = document.getElementById("duelCodeValue");
+  const duelLinkInput = document.getElementById("duelLinkInput");
+  const copyLinkBtn = document.getElementById("copyLinkBtn");
   const duelStatus = document.getElementById("duelStatus");
   const startBtn = document.getElementById("startBtn");
 
@@ -918,7 +920,52 @@
     return s;
   }
 
-  const peerId = (code) => "cdr-" + code; // préfixe pour limiter les collisions
+  // Namespace propre au déploiement : dérivé de l'hôte + du chemin de la page.
+  // L'hôte et l'invité chargent la même URL → même namespace → ils se trouvent ;
+  // un autre déploiement (ou site tiers utilisant PeerJS) a un namespace différent,
+  // ce qui évite les collisions de codes sur le broker public mondial.
+  function deployNamespace() {
+    // Normalise "/repo/" et "/repo/index.html" vers la même valeur.
+    const path = location.pathname.replace(/index\.html?$/i, "");
+    const raw = (location.host + path).toLowerCase();
+    let h = 0;
+    for (let i = 0; i < raw.length; i++) {
+      h = (h * 31 + raw.charCodeAt(i)) >>> 0;
+    }
+    return h.toString(36).slice(0, 6) || "local";
+  }
+
+  const NS = deployNamespace();
+  const peerId = (code) => `cdr-${NS}-${code}`; // ex. cdr-3f9k2a-ABCD
+
+  // Lien d'invitation : URL courante + ?duel=CODE
+  function buildShareUrl(code) {
+    const base = location.href.split("#")[0].split("?")[0];
+    return `${base}?duel=${code}`;
+  }
+
+  function copyShareLink() {
+    const url = duelLinkInput.value;
+    if (!url) return;
+    const done = () => {
+      const old = copyLinkBtn.textContent;
+      copyLinkBtn.textContent = "✅ Copié !";
+      setTimeout(() => {
+        copyLinkBtn.textContent = old;
+      }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done).catch(() => {
+        duelLinkInput.select();
+        document.execCommand("copy");
+        done();
+      });
+    } else {
+      duelLinkInput.select();
+      document.execCommand("copy");
+      done();
+    }
+  }
 
   function setDuelStatus(text) {
     duelStatus.textContent = text;
@@ -956,6 +1003,10 @@
     duelCode.hidden = true;
     startBtn.hidden = true;
     setDuelStatus("");
+    // Retire ?duel=… de l'URL pour éviter un re-join au rechargement.
+    try {
+      history.replaceState(null, "", location.href.split("?")[0].split("#")[0]);
+    } catch (e) {}
     loadScenario(scenarioIndex);
   }
 
@@ -972,7 +1023,8 @@
     peer.on("open", () => {
       duelCode.hidden = false;
       duelCodeValue.textContent = code;
-      setDuelStatus("Partage le code, puis attends ton adversaire…");
+      duelLinkInput.value = buildShareUrl(code);
+      setDuelStatus("Partage le code ou le lien, puis attends ton adversaire…");
     });
     peer.on("connection", (c) => {
       conn = c;
@@ -1126,9 +1178,18 @@
   });
   startBtn.addEventListener("click", hostStart);
   duelReplay.addEventListener("click", replayDuel);
+  copyLinkBtn.addEventListener("click", copyShareLink);
 
   // Go !
   populateSelect();
   loadScenario(0);
   requestAnimationFrame(tick);
+
+  // Auto-join si l'URL contient ?duel=CODE (lien d'invitation)
+  const joinParam = new URLSearchParams(location.search).get("duel");
+  if (joinParam) {
+    openDuelOverlay();
+    joinCode.value = joinParam.toUpperCase().slice(0, 4);
+    joinGame();
+  }
 })();
