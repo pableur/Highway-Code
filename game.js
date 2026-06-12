@@ -634,6 +634,8 @@
               `💥 Excès de vitesse : ${Math.round(s.value)} km/h pour ${scene.data.entry.limit} !`,
             );
             showRulePanel(false);
+            track("partie-solo", "Partie solo terminée");
+            track("partie-solo-echec", "Partie solo échouée");
           }
         } else if (match) {
           // En duel : succès immédiat dès le franchissement (pas d'attente).
@@ -649,6 +651,8 @@
       if (s.passed && car.progress >= maxIdx) {
         scene.status = "won";
         showRulePanel(true);
+        track("partie-solo", "Partie solo terminée");
+        track("partie-solo-reussie", "Partie solo réussie");
       }
     }
 
@@ -705,6 +709,8 @@
         if (match) return matchSolved();
         scene.status = "won";
         setBanner("ok", "✅ Bien joué ! Tout le monde passe en sécurité.");
+        track("partie-solo", "Partie solo terminée");
+        track("partie-solo-reussie", "Partie solo réussie");
       } else {
         setBanner("ok", "👍 Bon choix, continue.");
       }
@@ -716,6 +722,8 @@
       triggerShake();
       setBanner("bad", "💥 Mauvais ordre de passage !");
       showRulePanel(false);
+      track("partie-solo", "Partie solo terminée");
+      track("partie-solo-echec", "Partie solo échouée");
     }
   }
 
@@ -737,6 +745,22 @@
     bannerEl.className = "banner banner--" + kind;
     bannerEl.dataset.kind = kind;
     bannerTextEl.textContent = text;
+  }
+
+  // Envoie un événement personnalisé à GoatCounter (sans rien casser si absent,
+  // ex. en local file://). Apparaît dans le tableau de bord comme "event".
+  function track(name, title) {
+    try {
+      if (window.goatcounter && typeof window.goatcounter.count === "function") {
+        window.goatcounter.count({
+          path: name,
+          title: title || name,
+          event: true,
+        });
+      }
+    } catch (e) {
+      /* analytics ne doit jamais interrompre le jeu */
+    }
   }
 
   function showRulePanel(success) {
@@ -896,6 +920,9 @@
     duelResultDetail.textContent =
       `Toi : ${me.score} pt(s), ${me.fautes} faute(s)${meElim ? " — éliminé" : ""}. ` +
       `Adversaire : ${opp.score} pt(s), ${opp.fautes} faute(s)${oppElim ? " — éliminé" : ""}.`;
+
+    // Comptage des duels terminés : seul l'hôte émet, pour ne pas compter 2 fois.
+    if (myRole === "host") track("duel-termine", "Duel terminé");
   }
 
   function updateDuelHud() {
@@ -1016,6 +1043,7 @@
       return;
     }
     myRole = "host";
+    track("duel-cree", "Duel créé");
     createBtn.disabled = true;
     const code = genCode();
     setDuelStatus("Création de la partie…");
@@ -1062,6 +1090,7 @@
         startBtn.hidden = false;
         setDuelStatus("Adversaire connecté ✅ — lance le duel !");
       } else {
+        track("duel-rejoint", "Duel rejoint");
         setDuelStatus("Connecté ✅ — en attente du lancement par l'hôte…");
       }
     });
@@ -1107,6 +1136,7 @@
   }
 
   function hostStart() {
+    track("duel-demarre", "Duel démarré");
     const order = makeOrder();
     send({ type: "start", order });
     beginMatch(order);
