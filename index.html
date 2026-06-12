@@ -1,126 +1,180 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Code Puzzle — Apprendre le code de la route en jouant</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <div class="app">
-    <header class="app__header">
-      <h1>🚦 Code Puzzle</h1>
-      <p class="app__subtitle">Clique sur les véhicules dans le bon ordre pour respecter les priorités.</p>
-    </header>
-
-    <div class="toolbar" id="toolbar">
-      <label for="scenarioSelect" class="toolbar__label">Scénario</label>
-      <select id="scenarioSelect" class="toolbar__select"></select>
-      <button id="restartBtn" class="btn btn--ghost" type="button">↺ Recommencer</button>
-      <button id="duelBtn" class="btn btn--primary" type="button">⚔️ Duel 1v1</button>
-    </div>
-
-    <!-- Barre de duel (pendant un match) -->
-    <div id="duelHud" class="duel-hud" hidden>
-      <div class="duel-hud__side">
-        <span class="duel-hud__label">Toi</span>
-        <span class="duel-hud__score" id="duelScore">0</span>
-        <span class="duel-hud__fautes" id="duelFautes">0/3</span>
-      </div>
-      <div class="duel-hud__timer"><span id="duelTime">30</span><small>s</small></div>
-      <div class="duel-hud__side duel-hud__side--opp">
-        <span class="duel-hud__label">Adversaire</span>
-        <span class="duel-hud__score" id="duelOppScore">0</span>
-        <span class="duel-hud__fautes" id="duelOppFautes">0/3</span>
-      </div>
-    </div>
-
-    <main class="stage">
-      <canvas id="game" width="576" height="576" aria-label="Scène de circulation"></canvas>
-    </main>
-
-    <!-- HUD de vitesse (uniquement pour les scénarios kind: "speed") -->
-    <div id="speedHud" class="speed-hud" hidden>
-      <div id="speedo" class="speedo speedo--ok">
-        <span id="speedValue" class="speedo__value">90</span>
-        <span class="speedo__unit">km/h</span>
-      </div>
-      <div id="speedLimitInfo" class="speed-hud__limit">Limite en ville : 50 km/h</div>
-      <div class="speed-hud__controls">
-        <button id="brakeBtn" class="btn btn--brake" type="button">🛑 Freiner</button>
-        <button id="accelBtn" class="btn btn--accel" type="button">🚀 Accélérer</button>
-      </div>
-    </div>
-
-    <!-- Bandeau d'indices / feedback temps réel (sous la scène) -->
-    <div id="banner" class="banner banner--info">
-      <span id="bannerText">Observe la scène…</span>
-    </div>
-
-    <!-- Panneau pédagogique (règle), affiché en fin de puzzle -->
-    <section id="rulePanel" class="rule-panel" hidden>
-      <div class="rule-panel__icon" id="ruleIcon">✅</div>
-      <div class="rule-panel__body">
-        <h2 id="ruleTitle">Bravo !</h2>
-        <p id="ruleText"></p>
-      </div>
-      <div class="rule-panel__actions">
-        <button id="retryBtn" class="btn btn--ghost" type="button">Recommencer</button>
-        <button id="nextBtn" class="btn btn--primary" type="button">Scénario suivant →</button>
-      </div>
-    </section>
-
-    <footer class="app__footer">
-      <span id="progressInfo"></span>
-    </footer>
-  </div>
-
-  <!-- Overlay duel : lobby (créer/rejoindre) + résultats -->
-  <div id="duelOverlay" class="overlay" hidden>
-    <div class="overlay__card">
-      <button id="duelClose" class="overlay__close" type="button" aria-label="Fermer">✕</button>
-
-      <!-- Lobby -->
-      <div id="duelLobby">
-        <h2>⚔️ Duel 1 contre 1</h2>
-        <p class="overlay__intro">
-          Même série de scénarios pour les deux joueurs. En <b>30 secondes</b>,
-          enchaîne le maximum de bonnes réponses. <b>3 fautes</b> et tu es éliminé !
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Code Puzzle — Apprendre le code de la route en jouant</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="app__header">
+        <h1>🚦 Code Puzzle</h1>
+        <p class="app__subtitle">
+          Clique sur les véhicules dans le bon ordre pour respecter les
+          priorités.
         </p>
+      </header>
 
-        <div class="duel-actions">
-          <button id="createBtn" class="btn btn--primary" type="button">Créer une partie</button>
-          <div class="duel-join">
-            <input id="joinCode" class="duel-join__input" placeholder="CODE" maxlength="4" autocomplete="off" />
-            <button id="joinBtn" class="btn btn--ghost" type="button">Rejoindre</button>
-          </div>
-        </div>
-
-        <div id="duelCode" class="duel-code" hidden>
-          <span>Code de la partie</span>
-          <strong id="duelCodeValue">—</strong>
-          <div class="duel-link">
-            <input id="duelLinkInput" class="duel-link__input" readonly />
-            <button id="copyLinkBtn" class="btn btn--ghost" type="button">📋 Copier le lien</button>
-          </div>
-        </div>
-
-        <div id="duelStatus" class="duel-status"></div>
-        <button id="startBtn" class="btn btn--primary" type="button" hidden>🚦 Démarrer le duel</button>
+      <div class="toolbar" id="toolbar">
+        <label for="scenarioSelect" class="toolbar__label">Scénario</label>
+        <select id="scenarioSelect" class="toolbar__select"></select>
+        <button id="restartBtn" class="btn btn--ghost" type="button">
+          ↺ Recommencer
+        </button>
+        <button id="duelBtn" class="btn btn--primary" type="button">
+          ⚔️ Duel 1v1
+        </button>
       </div>
 
-      <!-- Résultats -->
-      <div id="duelResults" hidden>
-        <div id="duelResultIcon" class="duel-result__icon">🏆</div>
-        <h2 id="duelResultTitle">Résultat</h2>
-        <p id="duelResultDetail" class="overlay__intro"></p>
-        <button id="duelReplay" class="btn btn--primary" type="button">Rejouer</button>
+      <!-- Barre de duel (pendant un match) -->
+      <div id="duelHud" class="duel-hud" hidden>
+        <div class="duel-hud__side">
+          <span class="duel-hud__label">Toi</span>
+          <span class="duel-hud__score" id="duelScore">0</span>
+          <span class="duel-hud__fautes" id="duelFautes">0/3</span>
+        </div>
+        <div class="duel-hud__timer">
+          <span id="duelTime">30</span><small>s</small>
+        </div>
+        <div class="duel-hud__side duel-hud__side--opp">
+          <span class="duel-hud__label">Adversaire</span>
+          <span class="duel-hud__score" id="duelOppScore">0</span>
+          <span class="duel-hud__fautes" id="duelOppFautes">0/3</span>
+        </div>
+      </div>
+
+      <main class="stage">
+        <canvas
+          id="game"
+          width="576"
+          height="576"
+          aria-label="Scène de circulation"
+        ></canvas>
+      </main>
+
+      <!-- HUD de vitesse (uniquement pour les scénarios kind: "speed") -->
+      <div id="speedHud" class="speed-hud" hidden>
+        <div id="speedo" class="speedo speedo--ok">
+          <span id="speedValue" class="speedo__value">90</span>
+          <span class="speedo__unit">km/h</span>
+        </div>
+        <div id="speedLimitInfo" class="speed-hud__limit">
+          Limite en ville : 50 km/h
+        </div>
+        <div class="speed-hud__controls">
+          <button id="brakeBtn" class="btn btn--brake" type="button">
+            🛑 Freiner
+          </button>
+          <button id="accelBtn" class="btn btn--accel" type="button">
+            🚀 Accélérer
+          </button>
+        </div>
+      </div>
+
+      <!-- Bandeau d'indices / feedback temps réel (sous la scène) -->
+      <div id="banner" class="banner banner--info">
+        <span id="bannerText">Observe la scène…</span>
+      </div>
+
+      <!-- Panneau pédagogique (règle), affiché en fin de puzzle -->
+      <section id="rulePanel" class="rule-panel" hidden>
+        <div class="rule-panel__icon" id="ruleIcon">✅</div>
+        <div class="rule-panel__body">
+          <h2 id="ruleTitle">Bravo !</h2>
+          <p id="ruleText"></p>
+        </div>
+        <div class="rule-panel__actions">
+          <button id="retryBtn" class="btn btn--ghost" type="button">
+            Recommencer
+          </button>
+          <button id="nextBtn" class="btn btn--primary" type="button">
+            Scénario suivant →
+          </button>
+        </div>
+      </section>
+
+      <footer class="app__footer">
+        <span id="progressInfo"></span>
+      </footer>
+    </div>
+
+    <!-- Overlay duel : lobby (créer/rejoindre) + résultats -->
+    <div id="duelOverlay" class="overlay" hidden>
+      <div class="overlay__card">
+        <button
+          id="duelClose"
+          class="overlay__close"
+          type="button"
+          aria-label="Fermer"
+        >
+          ✕
+        </button>
+
+        <!-- Lobby -->
+        <div id="duelLobby">
+          <h2>⚔️ Duel 1 contre 1</h2>
+          <p class="overlay__intro">
+            Même série de scénarios pour les deux joueurs. En
+            <b>30 secondes</b>, enchaîne le maximum de bonnes réponses.
+            <b>3 fautes</b> et tu es éliminé !
+          </p>
+
+          <div class="duel-actions">
+            <button id="createBtn" class="btn btn--primary" type="button">
+              Créer une partie
+            </button>
+            <div class="duel-join">
+              <input
+                id="joinCode"
+                class="duel-join__input"
+                placeholder="CODE"
+                maxlength="4"
+                autocomplete="off"
+              />
+              <button id="joinBtn" class="btn btn--ghost" type="button">
+                Rejoindre
+              </button>
+            </div>
+          </div>
+
+          <div id="duelCode" class="duel-code" hidden>
+            <span>Code de la partie</span>
+            <strong id="duelCodeValue">—</strong>
+            <div class="duel-link">
+              <input id="duelLinkInput" class="duel-link__input" readonly />
+              <button id="copyLinkBtn" class="btn btn--ghost" type="button">
+                📋 Copier le lien
+              </button>
+            </div>
+          </div>
+
+          <div id="duelStatus" class="duel-status"></div>
+          <button id="startBtn" class="btn btn--primary" type="button" hidden>
+            🚦 Démarrer le duel
+          </button>
+        </div>
+
+        <!-- Résultats -->
+        <div id="duelResults" hidden>
+          <div id="duelResultIcon" class="duel-result__icon">🏆</div>
+          <h2 id="duelResultTitle">Résultat</h2>
+          <p id="duelResultDetail" class="overlay__intro"></p>
+          <button id="duelReplay" class="btn btn--primary" type="button">
+            Rejouer
+          </button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-  <script src="scenarios.js"></script>
-  <script src="game.js"></script>
-</body>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script src="scenarios.js"></script>
+    <script src="game.js"></script>
+
+    <script
+      data-goatcounter="https://highway-code.goatcounter.com/count"
+      async
+      src="//gc.zgo.at/count.js"
+    ></script>
+  </body>
 </html>
