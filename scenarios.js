@@ -314,4 +314,130 @@ const SCENARIOS = [
     },
     hint: "L'autre vient de ta gauche… de quel côté es-tu pour elle ?",
   },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "roundabout-enter",
+    title: "Rond-point — s'engager",
+    cols: 9,
+    rows: 9,
+    roads: [
+      { col: 0, row: 4, w: 9, h: 2 }, // accès est / ouest
+      { col: 4, row: 0, w: 2, h: 9 }, // accès nord / sud
+    ],
+    roundabout: { cx: 4.5, cy: 4.5, rOuter: 2.3, rInner: 1.15 },
+    signs: [
+      { type: "yield", col: 6.0, row: 6.0 },       // cédez le passage
+      { type: "roundabout", col: 6.8, row: 6.8 },  // sens giratoire
+    ],
+    vehicles: [
+      {
+        id: "ring",
+        color: "#ffce5a",
+        // Déjà engagée sur l'anneau, vient de l'ouest (à gauche du joueur),
+        // tourne dans le sens anti-horaire et ressort à l'est.
+        path: [
+          [2.78, 4.5],  // ouest
+          [3.28, 5.72], // sud-ouest
+          [4.5, 6.23],  // sud
+          [5.72, 5.72], // sud-est
+          [6.23, 4.5],  // est
+          [7.6, 4.5],
+          [9.5, 4.5],
+        ],
+      },
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        // Arrive du sud, s'engage et ressort au nord (par la droite de l'îlot).
+        path: [
+          [5, 8.6],
+          [5, 6.9],
+          [4.5, 6.23],  // sud (entrée)
+          [5.72, 5.72], // sud-est
+          [6.23, 4.5],  // est
+          [5.72, 3.28], // nord-est
+          [4.5, 2.77],  // nord (sortie)
+          [4.4, 1],
+          [4.4, -0.6],
+        ],
+      },
+    ],
+    expectedOrder: ["ring", "player"],
+    rule: {
+      good:
+        "Parfait ! À l'entrée d'un rond-point (sens giratoire), tu cèdes le " +
+        "passage aux véhicules DÉJÀ engagés sur l'anneau, qui arrivent sur ta " +
+        "gauche. Tu as attendu son passage avant de t'insérer.",
+      bad:
+        "Au sens giratoire, la priorité est à l'anneau : tu dois laisser passer " +
+        "les véhicules déjà engagés (ils arrivent de ta gauche) avant de " +
+        "t'insérer. Là, tu lui as coupé la route.",
+    },
+    hint: "Une voiture tourne déjà sur l'anneau, à ta gauche : qui est prioritaire ?",
+  },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "roundabout-inside",
+    title: "Rond-point — tu y circules",
+    cols: 9,
+    rows: 9,
+    roads: [
+      { col: 0, row: 4, w: 9, h: 2 },
+      { col: 4, row: 0, w: 2, h: 9 },
+    ],
+    roundabout: { cx: 4.5, cy: 4.5, rOuter: 2.3, rInner: 1.15 },
+    signs: [
+      { type: "yield", col: 6.6, row: 3.4 },       // cédez : pour la voiture qui entre
+      { type: "roundabout", col: 7.3, row: 2.7 },
+    ],
+    vehicles: [
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        // Déjà sur l'anneau : du sud vers la sortie nord.
+        path: [
+          [4.5, 6.23],  // sud
+          [5.72, 5.72], // sud-est
+          [6.23, 4.5],  // est
+          [5.72, 3.28], // nord-est
+          [4.5, 2.77],  // nord (sortie)
+          [4.4, 1],
+          [4.4, -0.6],
+        ],
+      },
+      {
+        id: "entering",
+        color: "#ff9f5a",
+        // Veut s'insérer depuis l'accès est : doit céder le passage au joueur.
+        // Circule ensuite dans le sens ANTI-HORAIRE (est → nord → ouest).
+        path: [
+          [8.6, 4.0],
+          [7.0, 4.2],
+          [6.23, 4.5],  // est (entrée) — point de conflit avec le joueur
+          [5.72, 3.28], // nord-est
+          [4.5, 2.77],  // nord
+          [3.28, 3.28], // nord-ouest
+          [2.78, 4.5],  // ouest
+          [1.4, 4.5],
+          [-0.6, 4.5],  // sortie ouest
+        ],
+      },
+    ],
+    expectedOrder: ["player", "entering"],
+    rule: {
+      good:
+        "Très bien ! Une fois engagé sur l'anneau, c'est TOI qui es prioritaire " +
+        "sur les véhicules qui veulent entrer. Tu as continué ta route, l'autre " +
+        "voiture s'insère après ton passage.",
+      bad:
+        "Tu étais déjà sur l'anneau : tu avais la priorité ! Inutile de t'arrêter " +
+        "pour celui qui veut entrer — c'est à lui de te céder le passage. Continue " +
+        "ta trajectoire.",
+    },
+    hint: "Tu es déjà sur l'anneau et l'autre veut entrer : qui doit céder ?",
+  },
 ];

@@ -119,7 +119,9 @@
 
     drawGrass();
     data.roads.forEach(drawRoad);
-    drawLaneMarkings(data.roads);
+    if (data.roundabout) drawRoundabout(data.roundabout);
+    // Les marquages droits n'ont pas de sens à travers un rond-point
+    if (!data.roundabout) drawLaneMarkings(data.roads);
     data.signs.forEach(drawSign);
 
     // Véhicules : on dessine ceux qui ne sont pas encore "done"
@@ -141,6 +143,42 @@
     ctx.strokeStyle = "rgba(255,255,255,0.18)";
     ctx.lineWidth = 2;
     ctx.strokeRect(r.col * CELL + 1, r.row * CELL + 1, r.w * CELL - 2, r.h * CELL - 2);
+  }
+
+  // Rond-point : anneau d'asphalte + îlot central engazonné
+  // rb = { cx, cy, rOuter, rInner } en unités de cases
+  function drawRoundabout(rb) {
+    const cx = rb.cx * CELL;
+    const cy = rb.cy * CELL;
+    const ro = rb.rOuter * CELL;
+    const ri = rb.rInner * CELL;
+
+    // Disque d'asphalte (relie les routes d'accès en un anneau)
+    ctx.beginPath();
+    ctx.arc(cx, cy, ro, 0, Math.PI * 2);
+    ctx.fillStyle = "#3a3f4b";
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255,255,255,0.18)";
+    ctx.stroke();
+
+    // Ligne d'anneau discontinue
+    ctx.setLineDash([12, 12]);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255,255,255,0.5)";
+    ctx.beginPath();
+    ctx.arc(cx, cy, (ro + ri) / 2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Îlot central (gazon) avec bordure blanche
+    ctx.beginPath();
+    ctx.arc(cx, cy, ri, 0, Math.PI * 2);
+    ctx.fillStyle = "#2b7a3b";
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(255,255,255,0.65)";
+    ctx.stroke();
   }
 
   // Lignes blanches discontinues au centre de chaque route
@@ -264,6 +302,37 @@
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText("STOP", 0, 0);
+    } else if (sign.type === "roundabout") {
+      // Cercle bleu avec 3 flèches tournant (sens giratoire)
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fillStyle = "#1b66c9";
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#ffffff";
+      ctx.stroke();
+
+      ctx.strokeStyle = "#ffffff";
+      ctx.fillStyle = "#ffffff";
+      ctx.lineWidth = 3;
+      const ar = r * 0.5;
+      for (let i = 0; i < 3; i++) {
+        ctx.save();
+        ctx.rotate((i / 3) * Math.PI * 2);
+        ctx.beginPath();
+        ctx.arc(0, 0, ar, Math.PI * 0.12, Math.PI * 0.58);
+        ctx.stroke();
+        const a2 = Math.PI * 0.58;
+        const hx = Math.cos(a2) * ar;
+        const hy = Math.sin(a2) * ar;
+        ctx.beginPath();
+        ctx.moveTo(hx, hy);
+        ctx.lineTo(hx - r * 0.17, hy - r * 0.03);
+        ctx.lineTo(hx + r * 0.02, hy + r * 0.17);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
     } else if (sign.type === "priority") {
       // Losange jaune (route prioritaire), liseré blanc
       ctx.rotate(Math.PI / 4);
