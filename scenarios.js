@@ -49,14 +49,26 @@ const SCENARIOS = [
         id: "left",
         color: "#ffce5a",
         // Vient de la GAUCHE, file vers la droite (voie du bas)
-        path: [[0, 5], [3, 5], [4, 5], [5, 5], [8, 5]],
+        path: [
+          [0, 5],
+          [3, 5],
+          [4, 5],
+          [5, 5],
+          [8, 5],
+        ],
       },
       {
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
         // Vient du BAS, monte tout droit (voie de droite = colonne 5)
-        path: [[5, 8], [5, 6], [5, 5], [5, 4], [5, 0]],
+        path: [
+          [5, 8],
+          [5, 6],
+          [5, 5],
+          [5, 4],
+          [5, 0],
+        ],
       },
     ],
     expectedOrder: ["left", "player"],
@@ -89,13 +101,25 @@ const SCENARIOS = [
         id: "right",
         color: "#ff9f5a",
         // Vient de la DROITE du joueur (donc de l'est), file vers la gauche
-        path: [[8, 4], [5, 4], [4, 4], [3, 4], [0, 4]],
+        path: [
+          [8, 4],
+          [5, 4],
+          [4, 4],
+          [3, 4],
+          [0, 4],
+        ],
       },
       {
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
-        path: [[5, 8], [5, 6], [5, 5], [5, 4], [5, 0]],
+        path: [
+          [5, 8],
+          [5, 6],
+          [5, 5],
+          [5, 4],
+          [5, 0],
+        ],
       },
     ],
     expectedOrder: ["right", "player"],
@@ -131,12 +155,24 @@ const SCENARIOS = [
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
-        path: [[5, 8], [5, 6], [5, 5], [5, 4], [5, 0]],
+        path: [
+          [5, 8],
+          [5, 6],
+          [5, 5],
+          [5, 4],
+          [5, 0],
+        ],
       },
       {
         id: "left",
         color: "#ffce5a",
-        path: [[0, 5], [3, 5], [4, 5], [5, 5], [8, 5]],
+        path: [
+          [0, 5],
+          [3, 5],
+          [4, 5],
+          [5, 5],
+          [8, 5],
+        ],
       },
     ],
     // Ici, c'est le joueur qui passe en premier : il est prioritaire !
@@ -171,13 +207,25 @@ const SCENARIOS = [
         id: "cross",
         color: "#ff9f5a",
         // Circule sur la route croisée (vient de la droite, file vers la gauche)
-        path: [[8, 4], [5, 4], [4, 4], [3, 4], [0, 4]],
+        path: [
+          [8, 4],
+          [5, 4],
+          [4, 4],
+          [3, 4],
+          [0, 4],
+        ],
       },
       {
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
-        path: [[5, 8], [5, 6], [5, 5], [5, 4], [5, 0]],
+        path: [
+          [5, 8],
+          [5, 6],
+          [5, 5],
+          [5, 4],
+          [5, 0],
+        ],
       },
     ],
     expectedOrder: ["cross", "player"],
@@ -210,14 +258,27 @@ const SCENARIOS = [
         id: "oncoming",
         color: "#ffce5a",
         // Arrive d'en face (du haut) et continue tout droit
-        path: [[4, 0], [4, 3], [4, 4], [4, 5], [4, 8]],
+        path: [
+          [4, 0],
+          [4, 3],
+          [4, 4],
+          [4, 5],
+          [4, 8],
+        ],
       },
       {
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
         // Vient du bas et TOURNE À GAUCHE (vers l'ouest)
-        path: [[5, 8], [5, 6], [5, 5], [4, 4], [2, 4], [0, 4]],
+        path: [
+          [5, 8],
+          [5, 6],
+          [5, 5],
+          [4, 4],
+          [2, 4],
+          [0, 4],
+        ],
       },
     ],
     expectedOrder: ["oncoming", "player"],
@@ -253,13 +314,25 @@ const SCENARIOS = [
         color: "#f4f7ff",
         label: "SAMU",
         emergency: true, // gyrophare + sirène
-        path: [[0, 5], [3, 5], [4, 5], [5, 5], [8, 5]],
+        path: [
+          [0, 5],
+          [3, 5],
+          [4, 5],
+          [5, 5],
+          [8, 5],
+        ],
       },
       {
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
-        path: [[5, 8], [5, 6], [5, 5], [5, 4], [5, 0]],
+        path: [
+          [5, 8],
+          [5, 6],
+          [5, 5],
+          [5, 4],
+          [5, 0],
+        ],
       },
     ],
     expectedOrder: ["ambulance", "player"],
@@ -292,13 +365,25 @@ const SCENARIOS = [
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
-        path: [[5, 8], [5, 6], [5, 5], [5, 4], [5, 0]],
+        path: [
+          [5, 8],
+          [5, 6],
+          [5, 5],
+          [5, 4],
+          [5, 0],
+        ],
       },
       {
         id: "left",
         color: "#ffce5a",
         // Arrive de la GAUCHE du joueur : c'est elle qui doit céder
-        path: [[0, 5], [3, 5], [4, 5], [5, 5], [8, 5]],
+        path: [
+          [0, 5],
+          [3, 5],
+          [4, 5],
+          [5, 5],
+          [8, 5],
+        ],
       },
     ],
     expectedOrder: ["player", "left"],
@@ -327,8 +412,8 @@ const SCENARIOS = [
     ],
     roundabout: { cx: 4.5, cy: 4.5, rOuter: 2.3, rInner: 1.15 },
     signs: [
-      { type: "yield", col: 6.0, row: 6.0 },       // cédez le passage
-      { type: "roundabout", col: 6.8, row: 6.8 },  // sens giratoire
+      { type: "yield", col: 6.0, row: 6.0 }, // cédez le passage
+      { type: "roundabout", col: 6.8, row: 6.8 }, // sens giratoire
     ],
     vehicles: [
       {
@@ -337,11 +422,11 @@ const SCENARIOS = [
         // Déjà engagée sur l'anneau, vient de l'ouest (à gauche du joueur),
         // tourne dans le sens anti-horaire et ressort à l'est.
         path: [
-          [2.78, 4.5],  // ouest
+          [2.78, 4.5], // ouest
           [3.28, 5.72], // sud-ouest
-          [4.5, 6.23],  // sud
+          [4.5, 6.23], // sud
           [5.72, 5.72], // sud-est
-          [6.23, 4.5],  // est
+          [6.23, 4.5], // est
           [7.6, 4.5],
           [9.5, 4.5],
         ],
@@ -354,11 +439,11 @@ const SCENARIOS = [
         path: [
           [5, 8.6],
           [5, 6.9],
-          [4.5, 6.23],  // sud (entrée)
+          [4.5, 6.23], // sud (entrée)
           [5.72, 5.72], // sud-est
-          [6.23, 4.5],  // est
+          [6.23, 4.5], // est
           [5.72, 3.28], // nord-est
-          [4.5, 2.77],  // nord (sortie)
+          [4.5, 2.77], // nord (sortie)
           [4.4, 1],
           [4.4, -0.6],
         ],
@@ -390,7 +475,7 @@ const SCENARIOS = [
     ],
     roundabout: { cx: 4.5, cy: 4.5, rOuter: 2.3, rInner: 1.15 },
     signs: [
-      { type: "yield", col: 6.6, row: 3.4 },       // cédez : pour la voiture qui entre
+      { type: "yield", col: 6.6, row: 3.4 }, // cédez : pour la voiture qui entre
       { type: "roundabout", col: 7.3, row: 2.7 },
     ],
     vehicles: [
@@ -400,11 +485,11 @@ const SCENARIOS = [
         isPlayer: true,
         // Déjà sur l'anneau : du sud vers la sortie nord.
         path: [
-          [4.5, 6.23],  // sud
+          [4.5, 6.23], // sud
           [5.72, 5.72], // sud-est
-          [6.23, 4.5],  // est
+          [6.23, 4.5], // est
           [5.72, 3.28], // nord-est
-          [4.5, 2.77],  // nord (sortie)
+          [4.5, 2.77], // nord (sortie)
           [4.4, 1],
           [4.4, -0.6],
         ],
@@ -417,13 +502,13 @@ const SCENARIOS = [
         path: [
           [8.6, 4.0],
           [7.0, 4.2],
-          [6.23, 4.5],  // est (entrée) — point de conflit avec le joueur
+          [6.23, 4.5], // est (entrée) — point de conflit avec le joueur
           [5.72, 3.28], // nord-est
-          [4.5, 2.77],  // nord
+          [4.5, 2.77], // nord
           [3.28, 3.28], // nord-ouest
-          [2.78, 4.5],  // ouest
+          [2.78, 4.5], // ouest
           [1.4, 4.5],
-          [-0.6, 4.5],  // sortie ouest
+          [-0.6, 4.5], // sortie ouest
         ],
       },
     ],
@@ -467,7 +552,10 @@ const SCENARIOS = [
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
-        path: [[-1.2, 3.5], [14, 3.5]],
+        path: [
+          [-1.2, 4],
+          [14, 4],
+        ],
       },
     ],
     rule: {
@@ -500,7 +588,10 @@ const SCENARIOS = [
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
-        path: [[-1.2, 3.5], [14, 3.5]],
+        path: [
+          [-1.2, 4],
+          [14, 4],
+        ],
       },
     ],
     rule: {
@@ -544,12 +635,24 @@ const SCENARIOS = [
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
-        path: [[5, 8], [5, 6], [5, 5], [5, 4], [5, 0]],
+        path: [
+          [5, 8],
+          [5, 6],
+          [5, 5],
+          [5, 4],
+          [5, 0],
+        ],
       },
       {
         id: "cross",
         color: "#ffce5a",
-        path: [[0, 5], [3, 5], [4, 5], [5, 5], [8, 5]],
+        path: [
+          [0, 5],
+          [3, 5],
+          [4, 5],
+          [5, 5],
+          [8, 5],
+        ],
       },
     ],
     expectedOrder: ["player"], // tu passes ; l'autre a rouge et attend
@@ -584,12 +687,24 @@ const SCENARIOS = [
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
-        path: [[5, 8], [5, 6], [5, 5], [5, 4], [5, 0]],
+        path: [
+          [5, 8],
+          [5, 6],
+          [5, 5],
+          [5, 4],
+          [5, 0],
+        ],
       },
       {
         id: "cross",
         color: "#ffce5a",
-        path: [[0, 5], [3, 5], [4, 5], [5, 5], [8, 5]],
+        path: [
+          [0, 5],
+          [3, 5],
+          [4, 5],
+          [5, 5],
+          [8, 5],
+        ],
       },
     ],
     expectedOrder: ["cross"], // tu restes à l'arrêt, l'autre (vert) passe
@@ -621,13 +736,25 @@ const SCENARIOS = [
         id: "right",
         color: "#ff9f5a",
         // Vient de ta droite (de l'est), file vers l'ouest
-        path: [[8, 4], [5, 4], [4, 4], [3, 4], [0, 4]],
+        path: [
+          [8, 4],
+          [5, 4],
+          [4, 4],
+          [3, 4],
+          [0, 4],
+        ],
       },
       {
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
-        path: [[5, 8], [5, 6], [5, 5], [5, 4], [5, 0]],
+        path: [
+          [5, 8],
+          [5, 6],
+          [5, 5],
+          [5, 4],
+          [5, 0],
+        ],
       },
     ],
     expectedOrder: ["right", "player"],
@@ -659,13 +786,23 @@ const SCENARIOS = [
         vClass: "pedestrian",
         speedMul: 0.55, // un piéton marche, il ne fonce pas
         // Traverse de gauche à droite sur le passage (rangée 6)
-        path: [[3, 6.5], [4.5, 6.5], [6, 6.5]],
+        path: [
+          [3, 6.5],
+          [4.5, 6.5],
+          [6, 6.5],
+        ],
       },
       {
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
-        path: [[5, 8], [5, 7], [5, 6], [5, 5], [5, 0]],
+        path: [
+          [5, 8],
+          [5, 7],
+          [5, 6],
+          [5, 5],
+          [5, 0],
+        ],
       },
     ],
     expectedOrder: ["pieton", "player"],
@@ -697,13 +834,25 @@ const SCENARIOS = [
         label: "BUS",
         blinker: "left", // signale qu'il se réinsère
         // Quitte un arrêt (en contrebas) et se réinsère dans la circulation
-        path: [[4, 5.4], [5, 4.4], [6, 3.5], [8, 3.5], [11, 3.5]],
+        path: [
+          [4, 5.4],
+          [5, 4.4],
+          [6, 4],
+          [8, 4],
+          [11, 4],
+        ],
       },
       {
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
-        path: [[0.5, 3.5], [2, 3.5], [4.5, 3.5], [7, 3.5], [11, 3.5]],
+        path: [
+          [0.5, 4],
+          [2, 4],
+          [4.5, 4],
+          [7, 4],
+          [11, 4],
+        ],
       },
     ],
     expectedOrder: ["bus", "player"],
@@ -736,14 +885,25 @@ const SCENARIOS = [
         vClass: "bike",
         label: "🚲",
         // Continue tout droit sur la bande cyclable (à droite), du bas vers le haut
-        path: [[5.4, 8.3], [5.4, 5], [5.4, 1], [5.4, -0.5]],
+        path: [
+          [5.4, 8.3],
+          [5.4, 5],
+          [5.4, 1],
+          [5.4, -0.5],
+        ],
       },
       {
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
         // Tourne à droite : du bas vers l'est
-        path: [[5, 8.3], [5, 6], [5, 5], [6, 5], [8, 5]],
+        path: [
+          [5, 8.3],
+          [5, 6],
+          [5, 5],
+          [6, 5],
+          [8, 5],
+        ],
       },
     ],
     expectedOrder: ["velo", "player"],
@@ -780,13 +940,24 @@ const SCENARIOS = [
         speedMul: 2.6, // le train arrive vite
         // row 2.1 = centre des rails (voie dessinée de row 2 à 3.2, centre à 2.6
         // en pixels ; comme les véhicules sont centrés sur la case, row = 2.1).
-        path: [[0.6, 2.1], [3, 2.1], [5, 2.1], [11, 2.1]],
+        path: [
+          [0.6, 2.1],
+          [3, 2.1],
+          [5, 2.1],
+          [11, 2.1],
+        ],
       },
       {
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
-        path: [[5, 8.3], [5, 4], [5, 2.1], [5, 1], [5, -0.5]],
+        path: [
+          [5, 8.3],
+          [5, 4],
+          [5, 2.1],
+          [5, 1],
+          [5, -0.5],
+        ],
       },
     ],
     expectedOrder: ["train", "player"],
@@ -821,7 +992,10 @@ const SCENARIOS = [
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
-        path: [[-1.2, 3.5], [14, 3.5]],
+        path: [
+          [-1.2, 4],
+          [14, 4],
+        ],
       },
     ],
     rule: {
@@ -851,7 +1025,10 @@ const SCENARIOS = [
         id: "player",
         color: "#4f8cff",
         isPlayer: true,
-        path: [[-1.2, 3.5], [14, 3.5]],
+        path: [
+          [-1.2, 4],
+          [14, 4],
+        ],
       },
     ],
     rule: {
@@ -864,5 +1041,299 @@ const SCENARIOS = [
         "être respectée : chaussée rétrécie, ouvriers à proximité.",
     },
     hint: "Panneau de limitation en zone de chantier : à quelle vitesse rouler ?",
+  },
+
+  /* =======================================================================
+   *  CHOIX (kind: "choice") — choisir la bonne réponse parmi des options
+   *  Champs : question, options:[{label, correct}], + ambiance facultative
+   *  ("night"|"fog"|"tunnel"). Les véhicules sont du décor (idle:true).
+   * =====================================================================*/
+  {
+    id: "feux-nuit",
+    kind: "choice",
+    title: "Feux — conduite de nuit",
+    cols: 11,
+    rows: 7,
+    roads: [{ col: 0, row: 3, w: 11, h: 2 }],
+    ambiance: "night",
+    vehicles: [
+      {
+        id: "ahead",
+        color: "#ffce5a",
+        idle: true,
+        path: [
+          [7, 4],
+          [7, 4],
+        ],
+      },
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        idle: true,
+        path: [
+          [3, 4],
+          [3, 4],
+        ],
+      },
+    ],
+    question:
+      "De nuit, tu suis une voiture à courte distance. Quels feux utilises-tu ?",
+    options: [
+      { label: "Feux de croisement", icons: ["croisement"], correct: true },
+      { label: "Feux de route", icons: ["route"], correct: false },
+      { label: "Feux de position", icons: ["position"], correct: false },
+    ],
+    rule: {
+      good:
+        "Bravo ! De nuit, dès qu'on suit ou qu'on croise un véhicule, on passe " +
+        "en feux de croisement pour ne pas éblouir. Les feux de route sont " +
+        "réservés à la route libre et bien dégagée.",
+      bad:
+        "Derrière un véhicule, les feux de route l'éblouissent par ses " +
+        "rétroviseurs : il faut les feux de croisement. Les feux de position " +
+        "seuls ne permettent pas de bien voir.",
+    },
+    hint: "Tu es juste derrière une voiture : que provoquent les pleins phares ?",
+  },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "feux-brouillard",
+    kind: "choice",
+    title: "Feux — brouillard",
+    cols: 11,
+    rows: 7,
+    roads: [{ col: 0, row: 3, w: 11, h: 2 }],
+    ambiance: "fog",
+    vehicles: [
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        idle: true,
+        path: [
+          [4, 4],
+          [4, 4],
+        ],
+      },
+    ],
+    multi: true,
+    question:
+      "Brouillard épais en plein jour. Allume les bons feux, puis valide.",
+    options: [
+      { id: "position", label: "Feux de position", icons: ["position"] },
+      { id: "croisement", label: "Feux de croisement", icons: ["croisement"] },
+      { id: "route", label: "Feux de route", icons: ["route"] },
+      {
+        id: "brouillard-av",
+        label: "Feux de brouillard avant",
+        icons: ["brouillard-av"],
+      },
+    ],
+    answer: ["croisement", "brouillard-av"],
+    rule: {
+      good:
+        "Parfait ! Par brouillard, on utilise les feux de croisement complétés " +
+        "par les feux de brouillard (avant ; arrière si visibilité < 50 m). Les " +
+        "feux de route sont renvoyés par les gouttelettes et éblouissent.",
+      bad:
+        "Surtout pas les pleins phares dans le brouillard : leur lumière est " +
+        "réfléchie et réduit encore la visibilité. On utilise feux de croisement " +
+        "+ feux de brouillard.",
+    },
+    hint: "Que deviennent les pleins phares face au brouillard ?",
+  },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "tunnel",
+    kind: "choice",
+    title: "Tunnel",
+    cols: 11,
+    rows: 7,
+    roads: [{ col: 0, row: 3, w: 11, h: 2 }],
+    ambiance: "tunnel",
+    vehicles: [
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        idle: true,
+        path: [
+          [4, 4],
+          [4, 4],
+        ],
+      },
+    ],
+    question:
+      "Tu entres dans un tunnel, en plein jour. Quels feux allumes-tu ?",
+    options: [
+      { label: "Feux de croisement", icons: ["croisement"], correct: true },
+      { label: "Aucun feu", icons: ["none"], correct: false },
+      { label: "Feux de route", icons: ["route"], correct: false },
+    ],
+    rule: {
+      good:
+        "Exact ! Les feux de croisement sont obligatoires dans un tunnel, même " +
+        "de jour, pour être vu et bien voir.",
+      bad:
+        "Dans un tunnel, les feux de croisement sont obligatoires même de jour. " +
+        "Sans feux on est quasi invisible ; les pleins phares peuvent gêner.",
+    },
+    hint: "Un tunnel reste sombre même de jour : que dit la règle ?",
+  },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "depassement-interdit",
+    kind: "choice",
+    title: "Dépassement — ligne continue",
+    cols: 13,
+    rows: 7,
+    roads: [{ col: 0, row: 3, w: 13, h: 2, line: "solid" }],
+    ambiance: "road",
+    vehicles: [
+      {
+        id: "tracteur",
+        color: "#7bd14f",
+        vClass: "truck",
+        label: "🚜",
+        idle: true,
+        path: [
+          [8, 4],
+          [8, 4],
+        ],
+      },
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        idle: true,
+        path: [
+          [3, 4],
+          [3, 4],
+        ],
+      },
+    ],
+    question:
+      "Tracteur lent devant toi, ligne médiane CONTINUE. Clique sur la flèche : rester derrière ou déboîter ?",
+    arrows: [
+      {
+        id: "stay",
+        path: [
+          [4.6, 4],
+          [6.8, 4],
+        ],
+        move: [
+          [3, 4],
+          [6.3, 4],
+        ], // avance et s'arrête derrière le tracteur
+        correct: true,
+      },
+      {
+        id: "overtake",
+        path: [
+          [4, 4],
+          [5.6, 3],
+          [8.6, 3],
+        ],
+        move: [
+          [3, 4],
+          [4.8, 3],
+          [7, 3],
+          [9.2, 3],
+          [10.6, 4],
+          [13, 4],
+        ],
+        correct: false,
+      },
+    ],
+    rule: {
+      good:
+        "Bien vu ! Une ligne blanche continue interdit le dépassement, et il est " +
+        "interdit de la franchir ou de la chevaucher. On patiente derrière.",
+      bad:
+        "Une ligne continue interdit le dépassement, même si la voie d'en face " +
+        "paraît libre : on ne la franchit jamais. Il faut rester derrière.",
+    },
+    hint: "Observe la ligne médiane : continue ou discontinue ?",
+  },
+
+  /* ----------------------------------------------------------------------- */
+  {
+    id: "depassement-autorise",
+    kind: "choice",
+    title: "Dépassement — ligne discontinue",
+    cols: 13,
+    rows: 7,
+    roads: [{ col: 0, row: 3, w: 13, h: 2, line: "dashed" }],
+    ambiance: "road",
+    vehicles: [
+      {
+        id: "tracteur",
+        color: "#7bd14f",
+        vClass: "truck",
+        label: "🚜",
+        idle: true,
+        path: [
+          [8, 4],
+          [8, 4],
+        ],
+      },
+      {
+        id: "player",
+        color: "#4f8cff",
+        isPlayer: true,
+        idle: true,
+        path: [
+          [3, 4],
+          [3, 4],
+        ],
+      },
+    ],
+    question:
+      "Tracteur lent devant toi, ligne DISCONTINUE, voie d'en face dégagée. Clique sur la flèche : rester derrière ou déboîter ?",
+    arrows: [
+      {
+        id: "stay",
+        path: [
+          [4.6, 4],
+          [6.8, 4],
+        ],
+        move: [
+          [3, 4],
+          [6.3, 4],
+        ],
+        correct: false,
+      },
+      {
+        id: "overtake",
+        path: [
+          [4, 4],
+          [5.6, 3],
+          [8.6, 3],
+        ],
+        move: [
+          [3, 4],
+          [4.8, 3],
+          [7, 3],
+          [9.2, 3],
+          [10.6, 4],
+          [13, 4],
+        ],
+        correct: true,
+      },
+    ],
+    rule: {
+      good:
+        "Exact ! Ligne discontinue + bonne visibilité + voie libre : le " +
+        "dépassement est autorisé. Pense au clignotant et à t'écarter " +
+        "suffisamment du véhicule dépassé.",
+      bad:
+        "Ici tout est réuni pour dépasser : ligne discontinue, visibilité et voie " +
+        "libres. Rester indéfiniment derrière un véhicule lent n'est pas justifié.",
+    },
+    hint: "Ligne discontinue et voie libre : qu'autorise cette ligne ?",
   },
 ];

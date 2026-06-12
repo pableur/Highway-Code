@@ -45,6 +45,10 @@
   const speedLimitInfo = document.getElementById("speedLimitInfo");
   const brakeBtn = document.getElementById("brakeBtn");
   const accelBtn = document.getElementById("accelBtn");
+  // Choix (kind: "choice")
+  const choicePanel = document.getElementById("choicePanel");
+  const choiceQuestion = document.getElementById("choiceQuestion");
+  const choiceOptions = document.getElementById("choiceOptions");
   // Duel 1v1
   const toolbar = document.getElementById("toolbar");
   const duelBtn = document.getElementById("duelBtn");
@@ -127,12 +131,19 @@
 
     const kind = data.kind || "order";
 
-    // Instancie un état "vivant" pour chaque véhicule
+    // Instancie un état "vivant" pour chaque véhicule.
+    //  - "moving"  : roule en continu (mode vitesse)
+    //  - "idle"    : décor non cliquable (mode choix, ou v.idle = true)
+    //  - "waiting" : cliquable (mode ordre)
     const vehicles = data.vehicles.map((v) => ({
       ...v,
-      progress: 0, // position le long du path
-      // En mode vitesse, la voiture roule en continu ("moving").
-      state: kind === "speed" ? "moving" : "waiting",
+      progress: 0,
+      state:
+        kind === "speed"
+          ? "moving"
+          : kind === "choice" || v.idle
+            ? "idle"
+            : "waiting",
     }));
 
     scene = {
@@ -161,16 +172,256 @@
       );
     } else {
       speedHud.hidden = true;
-      setBanner(
-        "info",
-        "Observe la scène, puis clique sur les véhicules dans le bon ordre.",
-      );
+    }
+
+    if (kind === "choice") {
+      buildChoiceOptions(data);
+      choicePanel.hidden = false;
+      setBanner("info", "Observe la situation et fais le bon choix.");
+    } else {
+      choicePanel.hidden = true;
+      if (kind === "order") {
+        setBanner(
+          "info",
+          "Observe la scène, puis clique sur les usagers dans le bon ordre.",
+        );
+      }
     }
 
     elapsed = 0;
     hideRulePanel();
     updateProgressInfo();
     selectEl.value = String(index);
+  }
+
+  // Pictogramme de témoin de feux (style tableau de bord), en SVG.
+  // id ∈ "position" | "croisement" | "route" | "brouillard-av" |
+  //      "brouillard-ar" | "none"
+  function lightIcon(id) {
+    const COL = {
+      croisement: "#3ddc6a",
+      position: "#3ddc6a",
+      "brouillard-av": "#3ddc6a",
+      route: "#4f8cff",
+      "brouillard-ar": "#ffb02e",
+    };
+    const c = COL[id] || "#cfd6e6";
+    const lens = `<path d="M18 6 A12 12 0 0 0 18 26 Z" fill="${c}"/>`;
+    const ray = (y1, y2) =>
+      `<line x1="21" y1="${y1}" x2="34" y2="${y2}" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>`;
+    const slantDown = ray(9, 12) + ray(14, 17) + ray(19, 22);
+    const straight = ray(9, 9) + ray(14, 14) + ray(19, 19);
+    const wavy = `<path d="M28 6 q-3.5 3 0 6 q3.5 3 0 6 q-3.5 3 0 6" fill="none" stroke="${c}" stroke-width="2.2"/>`;
+
+    let inner;
+    switch (id) {
+      case "croisement":
+        inner = lens + slantDown;
+        break;
+      case "route":
+        inner = lens + straight;
+        break;
+      case "brouillard-av":
+        inner = lens + slantDown + wavy;
+        break;
+      case "brouillard-ar":
+        inner = lens + straight + wavy;
+        break;
+      case "position": {
+        const sr = (x1, x2, y) =>
+          `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>`;
+        const left =
+          `<path d="M15 8 A9 9 0 0 0 15 24 Z" fill="${c}"/>` +
+          sr(13, 4, 11) + sr(13, 3, 16) + sr(13, 4, 21);
+        const right =
+          `<path d="M21 8 A9 9 0 0 1 21 24 Z" fill="${c}"/>` +
+          sr(23, 32, 11) + sr(23, 33, 16) + sr(23, 32, 21);
+        inner = left + right;
+        break;
+      }
+      case "none":
+        inner =
+          `<circle cx="18" cy="16" r="12" fill="none" stroke="#cfd6e6" stroke-width="2.2"/>` +
+          `<line x1="9" y1="25" x2="27" y2="7" stroke="#cfd6e6" stroke-width="2.2"/>`;
+        break;
+      default:
+        inner = lens;
+    }
+    return `<svg class="light-ico" viewBox="0 0 36 32" width="48" height="42" aria-hidden="true">${inner}</svg>`;
+  }
+
+  // Identifiant stable d'une option (pour la comparaison en mode multi).
+  function optId(opt, idx) {
+    return opt.id || (opt.icons && opt.icons.join("+")) || "opt" + idx;
+  }
+
+  // Construit les boutons d'options pour un scénario "choice".
+  // Une option peut porter `icons: [id, ...]` (symboles de feux) ; sinon texte.
+  // Si data.multi : on active plusieurs feux puis on clique "Valider".
+  function buildChoiceOptions(data) {
+    choiceQuestion.textContent = data.question || "Que fais-tu ?";
+    choiceOptions.innerHTML = "";
+    scene.selected = new Set();
+
+    // Mode "flèches sur le canvas" : pas de boutons, juste une consigne.
+    if (data.arrows) {
+      const hint = document.createElement("p");
+      hint.className = "choice-hint";
+      hint.textContent = "Clique sur la flèche correspondant à ta décision.";
+      choiceOptions.appendChild(hint);
+      return;
+    }
+
+    data.options.forEach((opt, idx) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "choice-opt";
+      if (opt.icons && opt.icons.length) {
+        // Bouton "feux" : pictogramme seul (le libellé reste en infobulle).
+        btn.classList.add("choice-opt--icon");
+        btn.title = opt.label;
+        const icons = document.createElement("span");
+        icons.className = "choice-opt__icons";
+        icons.innerHTML = opt.icons.map(lightIcon).join("");
+        btn.appendChild(icons);
+      } else {
+        const cap = document.createElement("span");
+        cap.className = "choice-opt__cap";
+        cap.textContent = opt.label;
+        btn.appendChild(cap);
+      }
+      if (data.multi) {
+        btn.addEventListener("click", () => toggleLight(optId(opt, idx), btn));
+      } else {
+        btn.addEventListener("click", () => chooseSingle(idx, btn));
+      }
+      choiceOptions.appendChild(btn);
+    });
+
+    if (data.multi) {
+      const v = document.createElement("button");
+      v.type = "button";
+      v.className = "btn btn--primary choice-validate";
+      v.textContent = "Valider";
+      v.addEventListener("click", validateMulti);
+      choiceOptions.appendChild(v);
+    }
+  }
+
+  // Clic sur une flèche de manœuvre (scénario "choice" avec data.arrows).
+  function handleArrowClick(x, y) {
+    let best = null;
+    let bestD = Infinity;
+    scene.data.arrows.forEach((a) => {
+      const pts = a.path.map(([c, r]) => cellCenter(c, r));
+      const d = distToPolyline(x, y, pts);
+      if (d < bestD) {
+        bestD = d;
+        best = a;
+      }
+    });
+    if (!best || bestD > CELL * 0.7) return;
+
+    scene.chosen = best.id;
+    scene.resolved = true;
+
+    // Anime la manœuvre choisie le long de son tracé.
+    const player = scene.vehicles.find((v) => v.isPlayer);
+    const animated = !!(player && best.move);
+    if (animated) {
+      player.path = best.move;
+      player.progress = 0;
+      player.state = "moving";
+      if (best.id === "stay") player.stay = true; // s'arrête et reste visible
+    }
+
+    // En duel : on tranche tout de suite (rythme rapide).
+    if (match) return resolveChoice(best.correct);
+
+    // En solo : feedback immédiat, règle affichée à la fin de l'animation.
+    if (best.correct) {
+      scene.status = "won";
+      setBanner("ok", "✅ Bon choix !");
+      track("partie-solo", "Partie solo terminée");
+      track("partie-solo-reussie", "Partie solo réussie");
+    } else {
+      scene.status = "lost";
+      triggerShake();
+      setBanner("bad", "💥 Mauvais choix.");
+      track("partie-solo", "Partie solo terminée");
+      track("partie-solo-echec", "Partie solo échouée");
+    }
+    if (animated) scene.showRuleOnArrive = true;
+    else showRulePanel(best.correct);
+  }
+
+  // Mode multi : on allume / éteint un feu.
+  function toggleLight(id, btn) {
+    if (scene.resolved) return;
+    if (scene.selected.has(id)) {
+      scene.selected.delete(id);
+      btn.classList.remove("is-on");
+    } else {
+      scene.selected.add(id);
+      btn.classList.add("is-on");
+    }
+  }
+
+  // Mode multi : on valide la combinaison allumée.
+  function validateMulti() {
+    if (scene.kind !== "choice" || scene.resolved) return;
+    if (match && match.localDone) return;
+    const ans = scene.data.answer || [];
+    const sel = scene.selected;
+    const correct = sel.size === ans.length && ans.every((a) => sel.has(a));
+
+    [...choiceOptions.querySelectorAll(".choice-opt")].forEach((b, i) => {
+      b.disabled = true;
+      const id = optId(scene.data.options[i], i);
+      if (ans.includes(id)) b.classList.add("is-correct");
+      else if (sel.has(id)) b.classList.add("is-wrong");
+    });
+    const vb = choiceOptions.querySelector(".choice-validate");
+    if (vb) vb.disabled = true;
+
+    resolveChoice(correct);
+  }
+
+  // Mode simple : un clic = réponse.
+  function chooseSingle(idx, btn) {
+    if (scene.kind !== "choice" || scene.resolved) return;
+    if (match && match.localDone) return;
+    const opt = scene.data.options[idx];
+    // Allume les feux choisis (pour projeter le bon faisceau).
+    scene.selected = new Set(opt.icons || []);
+    [...choiceOptions.children].forEach((b, i) => {
+      b.disabled = true;
+      if (scene.data.options[i] && scene.data.options[i].correct)
+        b.classList.add("is-correct");
+    });
+    if (!opt.correct) btn.classList.add("is-wrong");
+    resolveChoice(opt.correct);
+  }
+
+  // Dénouement commun d'un scénario "choice" (solo / duel / tracking).
+  function resolveChoice(correct) {
+    scene.resolved = true;
+    if (correct) {
+      if (match) return matchSolved();
+      scene.status = "won";
+      setBanner("ok", "✅ Bon choix !");
+      showRulePanel(true);
+      track("partie-solo", "Partie solo terminée");
+      track("partie-solo-reussie", "Partie solo réussie");
+    } else {
+      if (match) return matchFault();
+      scene.status = "lost";
+      triggerShake();
+      setBanner("bad", "💥 Mauvais choix.");
+      showRulePanel(false);
+      track("partie-solo", "Partie solo terminée");
+      track("partie-solo-echec", "Partie solo échouée");
+    }
   }
 
   function vehicleById(id) {
@@ -194,6 +445,7 @@
 
     drawGrass();
     data.roads.forEach(drawRoad);
+    if (data.ambiance === "tunnel") drawTunnelWalls(data);
     if (data.tracks) data.tracks.forEach(drawTracks);
     if (data.roundabout) drawRoundabout(data.roundabout);
     if (scene.kind === "speed") drawCity(data);
@@ -204,13 +456,18 @@
     (data.signs || []).forEach(drawSign);
     if (data.lights) data.lights.forEach(drawTrafficLight);
 
-    // Véhicules : on dessine ceux qui ne sont pas encore "done"
+    // Véhicules : on dessine ceux qui ne sont pas "done" (sauf v.stay = restent
+    // en place après leur trajet, ex. véhicules rangés pour un corridor).
     scene.vehicles.forEach((v) => {
-      if (v.state === "done") return;
+      if (v.state === "done" && !v.stay) return;
       drawVehicle(v);
     });
 
     if (data.weather === "rain") drawRain();
+    drawAmbiance(data);
+    if (isDriving()) drawDrivingFx(data);
+    if (scene.kind === "choice" && data.arrows)
+      data.arrows.forEach(drawManeuverArrow);
   }
 
   function drawGrass() {
@@ -468,6 +725,162 @@
     });
   }
 
+  // Parois de tunnel : bandes de béton au-dessus/dessous de la route + néons.
+  function drawTunnelWalls(data) {
+    const road = data.roads[0];
+    const top = road.row * CELL;
+    const bottom = (road.row + road.h) * CELL;
+    ctx.fillStyle = "#3b3f47";
+    ctx.fillRect(0, 0, canvas.width, top);
+    ctx.fillRect(0, bottom, canvas.width, canvas.height - bottom);
+    ctx.fillStyle = "rgba(255,240,200,0.55)";
+    ctx.fillRect(0, top - 4, canvas.width, 3);
+    ctx.fillRect(0, bottom + 1, canvas.width, 3);
+  }
+
+  // Flèche de manœuvre cliquable (scénarios "choice" avec data.arrows).
+  // a = { id, path:[[col,row],...], correct }
+  function drawManeuverArrow(a) {
+    const pts = a.path.map(([c, r]) => cellCenter(c, r));
+    let color = "#dfe7ff";
+    let alpha = 0.55 + 0.25 * Math.sin(performance.now() / 300);
+    if (scene.resolved) {
+      alpha = 1;
+      if (a.correct) color = "#3ddc6a";
+      else if (a.id === scene.chosen) color = "#ff5c6c";
+      else color = "rgba(200,210,230,0.25)";
+    }
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 9;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke();
+    // Pointe de flèche
+    const p2 = pts[pts.length - 1];
+    const p1 = pts[pts.length - 2];
+    const ang = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+    const hl = 19;
+    ctx.beginPath();
+    ctx.moveTo(p2.x, p2.y);
+    ctx.lineTo(
+      p2.x - hl * Math.cos(ang - Math.PI / 7),
+      p2.y - hl * Math.sin(ang - Math.PI / 7),
+    );
+    ctx.lineTo(
+      p2.x - hl * Math.cos(ang + Math.PI / 7),
+      p2.y - hl * Math.sin(ang + Math.PI / 7),
+    );
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Distance d'un point à un segment / une polyligne (pour cliquer une flèche).
+  function distToSeg(px, py, a, b) {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len2 = dx * dx + dy * dy || 1;
+    let t = ((px - a.x) * dx + (py - a.y) * dy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy));
+  }
+  function distToPolyline(px, py, pts) {
+    let d = Infinity;
+    for (let i = 0; i < pts.length - 1; i++)
+      d = Math.min(d, distToSeg(px, py, pts[i], pts[i + 1]));
+    return d;
+  }
+
+  // Scénario de feux "en conduite" : ambiance nuit/brouillard/tunnel.
+  function isDriving() {
+    return scene.kind === "choice" && !!scene.data.ambiance;
+  }
+
+  // Effets de conduite : réflecteurs de bord défilants + faisceaux de phares.
+  function drawDrivingFx(data) {
+    const road = data.roads[0];
+    const top = road.row * CELL;
+    const bottom = (road.row + road.h) * CELL;
+
+    // Réflecteurs de bord qui défilent (parallaxe rapide). Brillants seulement
+    // si des feux sont allumés (ils renvoient la lumière des phares).
+    const lit = scene.selected && scene.selected.size > 0;
+    const spacing = 88;
+    const off = ((performance.now() / 1000) * 160) % spacing;
+    ctx.fillStyle = lit ? "rgba(255,196,120,0.85)" : "rgba(255,196,120,0.22)";
+    for (let x = canvas.width - off; x > -spacing; x -= spacing) {
+      ctx.fillRect(x, top + 3, 12, 4);
+      ctx.fillRect(x, bottom - 7, 12, 4);
+    }
+
+    const player = scene.vehicles.find((v) => v.isPlayer);
+    if (player) drawHeadlights(player);
+  }
+
+  // Paramètres de faisceau par type de feu allumé.
+  const BEAMS = {
+    route: { reach: CELL * 5.6, spread: 0.27, col: "255,244,200", a: 0.5 },
+    croisement: { reach: CELL * 3.2, spread: 0.34, col: "255,244,200", a: 0.5 },
+    position: { reach: CELL * 1.1, spread: 0.5, col: "255,240,210", a: 0.22 },
+    "brouillard-av": {
+      reach: CELL * 2.2,
+      spread: 0.78,
+      col: "255,250,235",
+      a: 0.4,
+    },
+  };
+
+  // Faisceaux de phares projetés devant la voiture (additifs).
+  // Ne s'allument que pour les feux réellement sélectionnés (scene.selected).
+  function drawHeadlights(player) {
+    const active = scene.selected;
+    if (!active || active.size === 0) return; // aucun feu allumé -> route sombre
+    const { x, y, angle } = posAlongPath(player.path, player.progress);
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle); // la voiture regarde vers +x
+    ctx.globalCompositeOperation = "lighter";
+    active.forEach((id) => {
+      const b = BEAMS[id];
+      if (!b) return;
+      const grad = ctx.createLinearGradient(CAR_LEN * 0.45, 0, b.reach, 0);
+      grad.addColorStop(0, `rgba(${b.col},${b.a})`);
+      grad.addColorStop(1, `rgba(${b.col},0)`);
+      ctx.fillStyle = grad;
+      [-1, 1].forEach((side) => {
+        const oy = side * CAR_W * 0.28;
+        ctx.beginPath();
+        ctx.moveTo(CAR_LEN * 0.45, oy);
+        ctx.lineTo(b.reach, oy - b.reach * b.spread);
+        ctx.lineTo(b.reach, oy + b.reach * b.spread);
+        ctx.closePath();
+        ctx.fill();
+      });
+    });
+    ctx.restore();
+  }
+
+  // Voile d'ambiance par-dessus la scène (nuit / brouillard / tunnel).
+  function drawAmbiance(data) {
+    if (data.ambiance === "night") {
+      ctx.fillStyle = "rgba(6,12,34,0.55)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else if (data.ambiance === "fog") {
+      ctx.fillStyle = "rgba(205,212,222,0.5)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else if (data.ambiance === "tunnel") {
+      ctx.fillStyle = "rgba(8,10,16,0.45)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
   // Pluie : fines hachures animées par-dessus la scène.
   function drawRain() {
     ctx.strokeStyle = "rgba(180,200,255,0.35)";
@@ -485,10 +898,18 @@
 
   // Lignes blanches discontinues au centre de chaque route
   function drawLaneMarkings(roads) {
-    ctx.strokeStyle = "rgba(255,255,255,0.65)";
     ctx.lineWidth = 3;
-    ctx.setLineDash([14, 14]);
+    // En conduite, les pointillés défilent vers l'arrière (sens -x), comme les
+    // réflecteurs, puisque la voiture avance vers la droite (+x).
+    const dashOffset = isDriving() ? performance.now() / 14 : 0;
     roads.forEach((r) => {
+      // Ligne continue (dépassement interdit) ou discontinue (autorisé)
+      const solid = r.line === "solid";
+      ctx.strokeStyle = solid
+        ? "rgba(255,255,255,0.9)"
+        : "rgba(255,255,255,0.65)";
+      ctx.setLineDash(solid ? [] : [14, 14]);
+      ctx.lineDashOffset = dashOffset;
       ctx.beginPath();
       if (r.w >= r.h) {
         // route horizontale -> ligne centrale horizontale
@@ -503,6 +924,7 @@
       ctx.stroke();
     });
     ctx.setLineDash([]);
+    ctx.lineDashOffset = 0;
   }
 
   // Dimensions selon la classe de véhicule.
@@ -804,7 +1226,11 @@
   function tickOrder(dt) {
     if (scene.status === "playing") {
       elapsed += dt;
-      if (elapsed > HINT_DELAY && bannerEl.dataset.kind !== "hint") {
+      if (
+        scene.data.hint &&
+        elapsed > HINT_DELAY &&
+        bannerEl.dataset.kind !== "hint"
+      ) {
         setBanner("hint", "💡 " + scene.data.hint);
       }
     }
@@ -904,9 +1330,16 @@
   }
 
   function handleClick(evt) {
-    if (scene.kind !== "order" || scene.status !== "playing") return;
-    if (scene.resolved || (match && match.localDone)) return;
+    if (scene.status !== "playing" || scene.resolved) return;
+    if (match && match.localDone) return;
     const { x, y } = eventToCanvas(evt);
+
+    // Scénario "choice" avec flèches cliquables sur le canvas
+    if (scene.kind === "choice") {
+      if (scene.data.arrows) handleArrowClick(x, y);
+      return;
+    }
+    if (scene.kind !== "order") return;
 
     // Trouve un véhicule "waiting" sous le clic
     const hit = scene.vehicles.find((v) => {
@@ -953,6 +1386,14 @@
   // On affiche la règle quand plus aucun véhicule n'est en mouvement (gère aussi
   // les scénarios où le joueur ne bouge pas, ex. feu rouge respecté).
   function onVehicleArrived() {
+    // Cas "choice" animé : on affiche la règle quand la manœuvre est terminée.
+    if (scene.showRuleOnArrive) {
+      if (!scene.vehicles.some((v) => v.state === "moving")) {
+        scene.showRuleOnArrive = false;
+        showRulePanel(scene.status === "won");
+      }
+      return;
+    }
     if (scene.status !== "won") return;
     const stillMoving = scene.vehicles.some((v) => v.state === "moving");
     if (!stillMoving) showRulePanel(true);
@@ -1003,6 +1444,10 @@
   function updateProgressInfo() {
     if (scene.kind === "speed") {
       progressInfo.textContent = `Scénario ${scenarioIndex + 1}/${SCENARIOS.length} — gestion de la vitesse`;
+      return;
+    }
+    if (scene.kind === "choice") {
+      progressInfo.textContent = `Scénario ${scenarioIndex + 1}/${SCENARIOS.length} — bon choix`;
       return;
     }
     const total = scene.data.expectedOrder.length;
